@@ -1,0 +1,16 @@
+route_id,origin,destination,origin_city,destination_city,active_mvp
+GRU_GIG,GRU,GIG,São Paulo,Rio de Janeiro,true
+GRU_SSA,GRU,SSA,São Paulo,Salvador,true
+GRU_BSB,GRU,BSB,São Paulo,Brasília,true
+GRU_CWB,GRU,CWB,São Paulo,Curitiba,true
+GRU_POA,GRU,POA,São Paulo,Porto Alegre,true
+CGH_SDU,CGH,SDU,São Paulo,Rio de Janeiro,true
+BSB_REC,BSB,REC,Brasília,Recife,true
+GRU_REC,GRU,REC,São Paulo,Recife,true
+GRU_FOR,GRU,FOR,São Paulo,Fortaleza,true
+GRU_BEL,GRU,BEL,São Paulo,Belém,true
+CGH_CWB,CGH,CWB,São Paulo,Curitiba,true
+GIG_SSA,GIG,SSA,Rio de Janeiro,Salvador,true
+GRU_FLN,GRU,FLN,São Paulo,Florianópolis,true
+BSB_GRU,BSB,GRU,Brasília,São Paulo,true
+POA_GRU,POA,GRU,Porto Alegre,São Paulo,true

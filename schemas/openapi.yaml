@@ -1,0 +1,71 @@
+openapi: 3.0.3
+info:
+  title: VooAI API
+  version: 0.1.0
+  description: Consumo da camada Gold (export local). Não treina modelos.
+servers:
+  - url: http://localhost:8000
+paths:
+  /health:
+    get:
+      summary: Saúde
+      responses:
+        "200":
+          description: OK
+  /routes:
+    get:
+      summary: Rotas do MVP
+      responses:
+        "200":
+          description: Lista de rotas
+  /quotes/search:
+    get:
+      summary: Cotações atuais e resumo histórico
+      parameters:
+        - in: query
+          name: origin
+          required: true
+          schema: { type: string }
+        - in: query
+          name: dest
+          required: true
+          schema: { type: string }
+        - in: query
+          name: date
+          required: false
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Cotações
+  /recommendations/{route_id}:
+    get:
+      summary: Recomendação COMPRAR / AGUARDAR / MONITORAR
+      parameters:
+        - in: path
+          name: route_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Recomendação
+        "404":
+          description: Rota sem Gold
+  /reliability:
+    get:
+      summary: Atraso, cancelamento e ranking
+      parameters:
+        - in: query
+          name: airline
+          schema: { type: string }
+        - in: query
+          name: route
+          schema: { type: string }
+      responses:
+        "200":
+          description: Indicadores ANAC
+  /models/metrics:
+    get:
+      summary: MAE / RMSE dos experimentos
+      responses:
+        "200":
+          description: Métricas

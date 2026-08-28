@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VooAI — Brand book</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --voo-night: #0A1628;
+      --voo-night-2: #122038;
+      --voo-amber: #E8A317;
+      --voo-amber-dim: #b87e0f;
+      --voo-sky: #3D7EA6;
+      --voo-paper: #F4F6F8;
+      --voo-ink: #1C2430;
+      --voo-muted: #6B7785;
+      --voo-line: #d5dbe3;
+      --f-display: "Syne", sans-serif;
+      --f-body: "Manrope", sans-serif;
+      --f-mono: "IBM Plex Mono", ui-monospace, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--f-body);
+      color: var(--voo-ink);
+      background: var(--voo-paper);
+      line-height: 1.55;
+    }
+
+    .cover {
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% 100%, rgba(232, 163, 23, 0.18), transparent 55%),
+        linear-gradient(180deg, #061018 0%, var(--voo-night) 42%, #0d1c33 100%);
+      color: var(--voo-paper);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 8vh 8vw 10vh;
+    }
+    .cover::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(to top, rgba(10, 22, 40, 0.2), transparent 40%);
+      pointer-events: none;
+    }
+    .runway {
+      position: absolute;
+      left: 50%;
+      bottom: -8%;
+      width: 140vw;
+      height: 70vh;
+      transform: translateX(-50%) perspective(420px) rotateX(58deg);
+      transform-origin: center bottom;
+      pointer-events: none;
+    }
+    .runway-center {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      width: 3px;
+      height: 100%;
+      transform: translateX(-50%);
+      background: repeating-linear-gradient(
+        to bottom,
+        var(--voo-amber) 0 18px,
+        transparent 18px 42px
+      );
+      opacity: 0.85;
+      animation: pulse-amber 2.8s ease-in-out infinite;
+    }
+    .runway-edge {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      width: 2px;
+      background: rgba(244, 246, 248, 0.22);
+    }
+    .runway-edge.l { left: 28%; }
+    .runway-edge.r { right: 28%; }
+
+    @keyframes pulse-amber {
+      0%, 100% { opacity: 0.45; filter: brightness(0.9); }
+      50% { opacity: 1; filter: brightness(1.25); }
+    }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(18px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes draw {
+      from { stroke-dashoffset: 280; }
+      to { stroke-dashoffset: 0; }
+    }
+
+    .cover-brand {
+      position: relative;
+      z-index: 1;
+      animation: rise 0.9s ease both;
+    }
+    .wordmark {
+      font-family: var(--f-display);
+      font-weight: 800;
+      font-size: clamp(4.2rem, 14vw, 9.5rem);
+      letter-spacing: -0.06em;
+      line-height: 0.86;
+      display: flex;
+      align-items: flex-end;
+      gap: 0.18em;
+    }
+    .wordmark svg { width: clamp(2.4rem, 7vw, 4.8rem); height: auto; margin-bottom: 0.22em; }
+    .path-line {
+      fill: none;
+      stroke: var(--voo-amber);
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-dasharray: 280;
+      animation: draw 1.4s 0.35s ease forwards;
+    }
+    .cover h1 {
+      font-family: var(--f-display);
+      font-weight: 500;
+      font-size: clamp(1.35rem, 2.4vw, 2rem);
+      letter-spacing: -0.03em;
+      max-width: 18ch;
+      margin-top: 1.4rem;
+      animation: rise 1s 0.15s ease both;
+    }
+    .cover p.lead {
+      margin-top: 0.9rem;
+      max-width: 36ch;
+      color: rgba(244, 246, 248, 0.72);
+      font-size: 1.05rem;
+      animation: rise 1s 0.28s ease both;
+    }
+    .cover-meta {
+      margin-top: 2.4rem;
+      font-family: var(--f-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--voo-amber);
+      animation: rise 1s 0.4s ease both;
+    }
+
+    nav.toc {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      gap: 1.4rem;
+      flex-wrap: wrap;
+      padding: 0.9rem 8vw;
+      background: rgba(244, 246, 248, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--voo-line);
+      font-family: var(--f-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    nav.toc a { color: var(--voo-muted); text-decoration: none; }
+    nav.toc a:hover { color: var(--voo-night); }
+
+    section {
+      padding: 7rem 8vw;
+      max-width: 1200px;
+    }
+    section.full { max-width: none; }
+    .kicker {
+      font-family: var(--f-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--voo-sky);
+      margin-bottom: 0.8rem;
+    }
+    h2 {
+      font-family: var(--f-display);
+      font-weight: 700;
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      letter-spacing: -0.04em;
+      line-height: 1.05;
+      max-width: 16ch;
+    }
+    .one-line {
+      margin-top: 1rem;
+      max-width: 42ch;
+      color: var(--voo-muted);
+      font-size: 1.05rem;
+    }
+
+    .essence {
+      background: var(--voo-night);
+      color: var(--voo-paper);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+      align-items: end;
+    }
+    .essence .kicker { color: var(--voo-amber); }
+    .essence h2 { max-width: 12ch; }
+    .essence .one-line { color: rgba(244, 246, 248, 0.65); }
+
+    .logo-row {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 3rem;
+      margin-top: 3rem;
+      align-items: center;
+    }
+    .logo-stage {
+      background: var(--voo-night);
+      color: var(--voo-paper);
+      min-height: 280px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem;
+    }
+    .logo-stage.light {
+      background: #fff;
+      color: var(--voo-night);
+      border: 1px solid var(--voo-line);
+    }
+    .mark-lg { display: flex; align-items: center; gap: 0.35em; font-family: var(--f-display); font-weight: 800; font-size: 3.4rem; letter-spacing: -0.06em; }
+    .rules dt { font-family: var(--f-mono); font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--voo-sky); margin-top: 1.2rem; }
+    .rules dd { color: var(--voo-muted); margin-top: 0.25rem; }
+    .donts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2rem; margin-top: 2.5rem; }
+    .dont {
+      border-top: 2px solid #c45c4a;
+      padding-top: 0.8rem;
+    }
+    .dont strong { display: block; font-size: 0.95rem; }
+    .dont span { color: var(--voo-muted); font-size: 0.9rem; }
+
+    .swatches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 3rem; }
+    .swatch { min-height: 220px; padding: 1.4rem; display: flex; flex-direction: column; justify-content: space-between; }
+    .swatch code { font-family: var(--f-mono); font-size: 0.8rem; }
+    .s-night { background: var(--voo-night); color: var(--voo-paper); }
+    .s-amber { background: var(--voo-amber); color: var(--voo-night); }
+    .s-sky { background: var(--voo-sky); color: var(--voo-paper); }
+    .s-paper { background: #fff; color: var(--voo-ink); border: 1px solid var(--voo-line); }
+    .s-ink { background: var(--voo-ink); color: var(--voo-paper); }
+    .s-muted { background: var(--voo-muted); color: var(--voo-paper); }
+
+    .type-spec { margin-top: 2.5rem; }
+    .type-spec .display {
+      font-family: var(--f-display);
+      font-weight: 800;
+      font-size: clamp(2.4rem, 6vw, 4.5rem);
+      letter-spacing: -0.05em;
+      line-height: 0.95;
+    }
+    .type-spec .body { margin-top: 1rem; font-size: 1.15rem; max-width: 46ch; }
+    .type-spec .mono {
+      margin-top: 1.2rem;
+      font-family: var(--f-mono);
+      font-size: 0.95rem;
+      color: var(--voo-sky);
+    }
+
+    .states { display: grid; grid-template-columns: 1fr; gap: 0; margin-top: 2.5rem; border-top: 1px solid var(--voo-line); }
+    .state {
+      display: grid;
+      grid-template-columns: 160px 1fr 140px;
+      gap: 1.5rem;
+      align-items: center;
+      padding: 1.3rem 0;
+      border-bottom: 1px solid var(--voo-line);
+    }
+    .state-name {
+      font-family: var(--f-mono);
+      letter-spacing: 0.12em;
+      font-size: 0.78rem;
+    }
+    .state.comprar .state-name { color: var(--voo-amber-dim); }
+    .state.aguardar .state-name { color: var(--voo-sky); }
+    .state.monitorar .state-name { color: var(--voo-muted); }
+    .price { font-family: var(--f-mono); font-size: 1.2rem; text-align: right; }
+
+    .spark {
+      height: 36px;
+      width: 100%;
+    }
+
+    .ui-row { margin-top: 2.5rem; display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+    .btn {
+      font-family: var(--f-body);
+      font-weight: 700;
+      border: 0;
+      cursor: pointer;
+      padding: 0.95rem 1.4rem;
+      font-size: 1rem;
+      background: var(--voo-amber);
+      color: var(--voo-night);
+    }
+    .btn:hover { filter: brightness(1.05); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--voo-night);
+      box-shadow: inset 0 0 0 1px var(--voo-night);
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .field span {
+      font-family: var(--f-mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--voo-muted);
+    }
+    .field input, .field select {
+      font: 600 1rem var(--f-body);
+      border: 0;
+      border-bottom: 2px solid var(--voo-night);
+      background: transparent;
+      padding: 0.55rem 0;
+      min-width: 8rem;
+      color: var(--voo-ink);
+    }
+    .chip {
+      font-family: var(--f-mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      padding: 0.35rem 0;
+      border-bottom: 1px solid var(--voo-line);
+      color: var(--voo-sky);
+    }
+
+    .voice { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; margin-top: 2rem; }
+    .voice h3 { font-family: var(--f-display); font-size: 1.3rem; margin-bottom: 0.6rem; }
+    .voice ul { padding-left: 1.1rem; color: var(--voo-muted); }
+    .voice li { margin: 0.35rem 0; }
+
+    .app-mock {
+      background: var(--voo-night);
+      color: var(--voo-paper);
+      min-height: 100vh;
+      padding: 0;
+      max-width: none;
+    }
+    .mock-inner {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 10vh 8vw;
+      background:
+        radial-gradient(ellipse 70% 45% at 70% 10%, rgba(61, 126, 166, 0.25), transparent 50%),
+        linear-gradient(180deg, #07101c, var(--voo-night));
+      position: relative;
+    }
+    .mock-inner h2 {
+      font-size: clamp(3rem, 8vw, 6rem);
+      max-width: 10ch;
+      color: var(--voo-paper);
+    }
+    .search-bar {
+      margin-top: 2rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      align-items: flex-end;
+      max-width: 720px;
+    }
+    .search-bar .field span { color: rgba(244,246,248,0.5); }
+    .search-bar input, .search-bar select {
+      color: var(--voo-paper);
+      border-bottom-color: var(--voo-amber);
+    }
+
+    .detail-mock {
+      background: var(--voo-paper);
+      padding: 5rem 8vw 7rem;
+    }
+    .detail-mock h2 { max-width: 20ch; }
+
+    footer {
+      padding: 2rem 8vw 3rem;
+      font-family: var(--f-mono);
+      font-size: 0.72rem;
+      color: var(--voo-muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 800px) {
+      .essence, .logo-row, .voice, .state { grid-template-columns: 1fr; }
+      .donts, .swatches { grid-template-columns: 1fr; }
+      .state { grid-template-columns: 1fr; }
+      .price { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+  <header class="cover" id="capa">
+    <div class="runway" aria-hidden="true">
+      <span class="runway-edge l"></span>
+      <span class="runway-center"></span>
+      <span class="runway-edge r"></span>
+    </div>
+    <div class="cover-brand">
+      <div class="wordmark">
+        <svg viewBox="0 0 72 48" aria-hidden="true">
+          <path class="path-line" d="M4 40 C 18 38, 22 12, 40 14 C 52 15, 58 28, 68 22" />
+          <circle cx="68" cy="22" r="3.2" fill="#E8A317" />
+        </svg>
+        VooAI
+      </div>
+      <h1>Sinal claro para comprar ou esperar.</h1>
+      <p class="lead">Inteligência de tarifa nacional: histórico, previsão e reputação operacional no mesmo recorte.</p>
+      <p class="cover-meta">Brand book · v0.1 · 2026 · acadêmico Mackenzie</p>
+    </div>
+  </header>
+
+  <nav class="toc">
+    <a href="#essencia">Essência</a>
+    <a href="#logo">Logo</a>
+    <a href="#cores">Cores</a>
+    <a href="#tipo">Tipo</a>
+    <a href="#componentes">UI</a>
+    <a href="#voz">Voz</a>
+    <a href="#aplicacao">Aplicação</a>
+  </nav>
+
+  <section class="essence full" id="essencia">
+    <div>
+      <p class="kicker">01 — Essência</p>
+      <h2>Preço sozinho é um recorte cego.</h2>
+    </div>
+    <p class="one-line">Passageiros compram no escuro: tarifa sem história, sem tendência, sem atraso. VooAI junta cotação, antecedência e confiabilidade ANAC num veredito único — comprar, aguardar ou monitorar.</p>
+  </section>
+
+  <section id="logo">
+    <p class="kicker">02 — Marca gráfica</p>
+    <h2>Wordmark + trajetória.</h2>
+    <p class="one-line">A linha é a rota. O nó âmbar é o destino. Sem mascote, sem fuselagem ilustrada.</p>
+    <div class="logo-row">
+      <div class="logo-stage">
+        <div class="mark-lg">
+          <svg width="56" height="38" viewBox="0 0 72 48" aria-hidden="true">
+            <path d="M4 40 C 18 38, 22 12, 40 14 C 52 15, 58 28, 68 22" fill="none" stroke="#E8A317" stroke-width="3" stroke-linecap="round" />
+            <circle cx="68" cy="22" r="3.2" fill="#E8A317" />
+          </svg>
+          VooAI
+        </div>
+      </div>
+      <div class="logo-stage light">
+        <div class="mark-lg" style="color:#0A1628">
+          <svg width="56" height="38" viewBox="0 0 72 48" aria-hidden="true">
+            <path d="M4 40 C 18 38, 22 12, 40 14 C 52 15, 58 28, 68 22" fill="none" stroke="#E8A317" stroke-width="3" stroke-linecap="round" />
+            <circle cx="68" cy="22" r="3.2" fill="#E8A317" />
+          </svg>
+          VooAI
+        </div>
+      </div>
+    </div>
+    <dl class="rules">
+      <dt>Clear space</dt>
+      <dd>Mínimo igual à altura do “V”. Não encostar em outros logos de cia aérea.</dd>
+      <dt>Tamanho mínimo</dt>
+      <dd>Wordmark 96 px de largura em tela; 24 mm em impressão.</dd>
+      <dt>Lockup</dt>
+      <dd>Trajetória sempre à esquerda, alinhada à linha de base óptica do wordmark.</dd>
+    </dl>
+    <div class="donts">
+      <div class="dont"><strong>Não alongar</strong><span>Proibido distorcer o Syne ou o traço.</span></div>
+      <div class="dont"><strong>Não recolorir o nó</strong><span>O destino é sempre âmbar.</span></div>
+      <div class="dont"><strong>Não usar avião</strong><span>Ícones de aeronave genéricos quebram a marca.</span></div>
+    </div>
+  </section>
+
+  <section id="cores">
+    <p class="kicker">03 — Cor</p>
+    <h2>Noite de pista, âmbar de sinal.</h2>
+    <p class="one-line">A noite carrega a marca. O âmbar decide. O azul operacional informa, nunca compete.</p>
+    <div class="swatches">
+      <div class="swatch s-night"><strong>Noite</strong><code>#0A1628</code></div>
+      <div class="swatch s-amber"><strong>Âmbar</strong><code>#E8A317</code></div>
+      <div class="swatch s-sky"><strong>Céu operacional</strong><code>#3D7EA6</code></div>
+      <div class="swatch s-paper"><strong>Papel</strong><code>#F4F6F8</code></div>
+      <div class="swatch s-ink"><strong>Tinta</strong><code>#1C2430</code></div>
+      <div class="swatch s-muted"><strong>Muted</strong><code>#6B7785</code></div>
+    </div>
+  </section>
+
+  <section id="tipo">
+    <p class="kicker">04 — Tipografia</p>
+    <h2>Geometria no nome, clareza no dado.</h2>
+    <div class="type-spec">
+      <p class="display">GRU → SSA</p>
+      <p class="body">Syne no display. Manrope no texto. IBM Plex Mono em rota, preço e timestamp — o mesmo peso visual de um plano de voo.</p>
+      <p class="mono">R$ 711,90 · lead 23d · LA 1452 · 2026-09-12T09:15Z</p>
+    </div>
+  </section>
+
+  <section id="componentes">
+    <p class="kicker">05 — Componentes</p>
+    <h2>Interação sem cartão decorativo.</h2>
+    <p class="one-line">Borda só onde o usuário age. Recomendação é uma linha de estado, não um badge flutuante.</p>
+    <div class="ui-row">
+      <div class="field"><span>Origem</span><input value="GRU" readonly /></div>
+      <div class="field"><span>Destino</span><input value="SSA" readonly /></div>
+      <div class="field"><span>Partida</span><input value="12/09/2026" readonly /></div>
+      <button class="btn" type="button">Ver sinal</button>
+      <button class="btn btn-ghost" type="button">Método</button>
+      <span class="chip">LATAM</span>
+      <span class="chip">GOL</span>
+    </div>
+    <div class="states">
+      <div class="state comprar">
+        <span class="state-name">Comprar</span>
+        <svg class="spark" viewBox="0 0 200 36" aria-hidden="true"><polyline fill="none" stroke="#E8A317" stroke-width="2" points="0,28 40,24 80,26 120,14 160,10 200,6" /></svg>
+        <span class="price">+7,2%</span>
+      </div>
+      <div class="state aguardar">
+        <span class="state-name">Aguardar</span>
+        <svg class="spark" viewBox="0 0 200 36" aria-hidden="true"><polyline fill="none" stroke="#3D7EA6" stroke-width="2" points="0,8 40,12 80,10 120,18 160,24 200,30" /></svg>
+        <span class="price">−8,1%</span>
+      </div>
+      <div class="state monitorar">
+        <span class="state-name">Monitorar</span>
+        <svg class="spark" viewBox="0 0 200 36" aria-hidden="true"><polyline fill="none" stroke="#6B7785" stroke-width="2" points="0,18 40,16 80,20 120,17 160,19 200,18" /></svg>
+        <span class="price">+1,8%</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="voz">
+    <p class="kicker">06 — Voz</p>
+    <h2>Direto como um ATIS.</h2>
+    <div class="voice">
+      <div>
+        <h3>Usar</h3>
+        <ul>
+          <li>Comprar: a tarifa deve subir cerca de 7% nesta antecedência.</li>
+          <li>Aguardar: a série aponta queda. Não há pressa nesta rota.</li>
+          <li>Monitorar: variação prevista dentro de ±5%. Releia em 48h.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Evitar</h3>
+        <ul>
+          <li>“A IA achou o voo perfeito.”</li>
+          <li>Emojis, urgência falsa, “oferta relâmpago”.</li>
+          <li>Prometer economia que o modelo não sustentou no MAE.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="app-mock" id="aplicacao">
+    <div class="mock-inner">
+      <p class="kicker" style="color:#E8A317">07 — Aplicação · Home</p>
+      <div class="wordmark" style="font-size:clamp(3rem,10vw,6rem)">
+        <svg viewBox="0 0 72 48" width="48" height="32" aria-hidden="true">
+          <path d="M4 40 C 18 38, 22 12, 40 14 C 52 15, 58 28, 68 22" fill="none" stroke="#E8A317" stroke-width="3" stroke-linecap="round" />
+          <circle cx="68" cy="22" r="3.2" fill="#E8A317" />
+        </svg>
+        VooAI
+      </div>
+      <h2>Sinal claro para comprar ou esperar.</h2>
+      <p class="lead" style="color:rgba(244,246,248,.7);margin-top:1rem;max-width:36ch">Busque um trecho nacional. O veredito junta preço, tendência e reputação.</p>
+      <form class="search-bar" action="#">
+        <div class="field"><span>Origem</span><input value="GRU" /></div>
+        <div class="field"><span>Destino</span><input value="SSA" /></div>
+        <div class="field"><span>Data</span><input value="2026-09-12" /></div>
+        <button class="btn" type="button">Ver sinal</button>
+      </form>
+    </div>
+    <div class="detail-mock">
+      <p class="kicker">Detalhe da rota</p>
+      <h2>GRU → SSA · comprar</h2>
+      <p class="one-line">Preço atual R$ 711,90 abaixo da média histórica R$ 802,40. Variação prevista +7,2%. Atraso LATAM nesta rota 12,1%.</p>
+    </div>
+  </section>
+
+  <footer>VooAI · tokens obrigatórios no front · não usar paleta de template · projeto acadêmico</footer>
+</body>
+</html>

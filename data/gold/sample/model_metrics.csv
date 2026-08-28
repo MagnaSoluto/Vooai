@@ -1,0 +1,4 @@
+model_name,family,mae,rmse,r2,trained_at
+linear_baseline,regression,86.4,121.2,0.41,2026-08-25T18:00:00Z
+random_forest,regression,64.8,93.5,0.62,2026-08-25T18:40:00Z
+sarima_route,timeseries,71.2,102.0,,2026-08-26T09:10:00Z
