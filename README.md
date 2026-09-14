@@ -19,7 +19,7 @@ SoR → SoT → Spec (notebooks) → API (`/search`) junta Google Flights + `spe
 
 ## Rodar local
 
-Pré-requisitos: `SERPAPI_API_KEY`, pastas `data/SoT` (aeroportos) e `data/Spec` (parquet Gold). Detalhe e deploy na box FourDev/SDR: [`docs/deploy-academico.md`](docs/deploy-academico.md).
+Pré-requisitos: `SERPAPI_API_KEY`; no clone, `data/Spec` (parquet Gold) e `data/SoT/SoT_aeroportos` já vêm no Git. SoR/SoT bruto continuam locais. Detalhe e deploy na box: [`docs/deploy-academico.md`](docs/deploy-academico.md) · política de dados: [`data/README.md`](data/README.md).
 
 ```bash
 # API

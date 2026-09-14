@@ -24,11 +24,16 @@ metastore_db/
 derby.log
 
 # Data volumes — SoR ≈ Bronze, SoT ≈ Silver, Spec ≈ Gold
+# Spec (Gold produto) É versionada no Git (~40 MB) para clone/demo sem Databricks.
+# SoR (~GB) e SoT bruto ficam fora; só dim de aeroportos (leve) entra no Git.
 data/SoR/*
 data/SoT/*
-data/Spec/*
 !data/SoR/.gitkeep
 !data/SoT/.gitkeep
+!data/SoT/SoT_aeroportos/
+!data/SoT/SoT_aeroportos/**
+# Spec: versionar tabelas de produto; excluir só dumps efêmeros de busca
+data/Spec/spec_resultados/
 !data/Spec/.gitkeep
 !data/README.md
 

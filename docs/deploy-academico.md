@@ -228,10 +228,17 @@ Resolução de pastas: `apps/api/app/paths.py` (`latest_glob` = arquivo mais rec
 4. **Restart** da API (`@lru_cache` em paths/dims)  
 5. Conferir novos `gold_file` / `gold_date_*` em `/health`
 
-### 4.3 Gitignore
+### 4.3 Gitignore e o que vai no repositório
 
-`data/SoR/*`, `data/SoT/*`, `data/Spec/*` — exceções: `.gitkeep` e `data/README.md`.  
-Não versionar parquet nem `.env` com chave.
+| Path | Git |
+|------|-----|
+| `data/Spec/**` (risco, cias, atrasos, métricas, modelos) | **Versionado** (~40 MB) |
+| `data/Spec/spec_resultados/` | Ignorado (dumps de busca) |
+| `data/SoT/SoT_aeroportos/` | **Versionado** (leve, autocomplete) |
+| `data/SoR/*`, resto de `data/SoT/*` | Ignorado (volume grande) |
+| `.env` / `SERPAPI_API_KEY` | Nunca |
+
+Clone novo: `git pull` já traz Spec + aeroportos. SoR completo continua só no disco/Databricks.
 
 ### 4.4 Por que não Postgres agora
 
