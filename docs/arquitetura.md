@@ -52,14 +52,14 @@ flowchart TB
 
 ## Camadas Lakehouse
 
-| Camada | Ferramenta / formato | Conteúdo | Código no git |
-|--------|----------------------|----------|---------------|
-| Fontes | Python + dados abertos | Cotações periódicas; ANAC VRA e bases SoR | `collectors/`, `notebooks/` |
-| Bronze | JSON/CSV → Delta | Brutos sem alteração funcional | notebooks 01–02 |
-| Silver | PySpark / SQL + Delta | Datas, IATA, companhias, nulos, features | notebook 03 |
-| Gold | Spark + MLflow + Delta | Histórico de preço, KPIs ANAC, previsão, recomendação | notebooks 05–07 |
-| Consumo A | Databricks AI/BI | Dashboard da disciplina | workspace Free |
-| Consumo B | FastAPI + React | Produto VooAI | `apps/` + `data/gold/` |
+| Camada | Nome no repo | Ferramenta / formato | Conteúdo | Código no git |
+|--------|--------------|----------------------|----------|---------------|
+| Fontes | — | Python + dados abertos | Cotações periódicas; ANAC VRA | `collectors/`, `notebooks/` |
+| Bronze | **SoR** | JSON/CSV → Delta | Brutos sem alteração funcional | `data/SoR/`, notebooks 01–02 / 08 |
+| Silver | **SoT** | PySpark / SQL + Delta | Datas, IATA, companhias, nulos, features | `data/SoT/`, notebook 03 / 08 |
+| Gold | **Spec** | Spark + MLflow + Delta | Histórico, KPIs ANAC, previsão, recomendação | `data/Spec/`, notebooks 05–07 / 09–10 |
+| Consumo A | — | Databricks AI/BI | Dashboard da disciplina | workspace Free |
+| Consumo B | Spec CSV | FastAPI + React | Produto VooAI | `apps/` + `data/Spec/` |
 
 Catálogo sugerido no Free: `vooai` / schemas `bronze`, `silver`, `gold`.
 
@@ -68,10 +68,12 @@ Catálogo sugerido no Free: `vooai` / schemas `bronze`, `silver`, `gold`.
 1. Versionar notebooks e collectors neste repositório.
 2. Importar no workspace Free ([`scripts/sync_notebooks.md`](../scripts/sync_notebooks.md)).
 3. Executar ingestão e gravação Delta no cluster Free.
-4. Exportar Gold para `data/gold/` via [`scripts/export_gold.py`](../scripts/export_gold.py) (ou download manual / SQL warehouse).
+4. Exportar Spec (Gold produto) para `data/Spec/` via [`scripts/export_gold.py`](../scripts/export_gold.py) (ou download manual / SQL warehouse).
 5. Dashboard lê Gold no Databricks. A web lê só a API.
 
-No MVP a API **não** consulta o cluster a cada request. Isso evita timeout do Free e permite demo offline com [`data/gold/sample`](../data/gold/sample).
+No MVP a API **não** consulta o cluster a cada request. Isso evita timeout do Free e permite demo com Spec exportada em disco.
+
+Deploy acadêmico (local, Docker, box FourDev/SDR sem Postgres, roadmap internacional): [`deploy-academico.md`](deploy-academico.md).
 
 ## Modelagem e decisão
 

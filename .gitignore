@@ -23,16 +23,23 @@ spark-warehouse/
 metastore_db/
 derby.log
 
-# Data volumes (keep small samples versioned)
-data/raw/*
-data/bronze/*
-data/silver/*
-data/gold/*
-!data/raw/.gitkeep
-!data/bronze/.gitkeep
-!data/silver/.gitkeep
-!data/gold/.gitkeep
-!data/gold/sample/
+# Data volumes — SoR ≈ Bronze, SoT ≈ Silver, Spec ≈ Gold
+data/SoR/*
+data/SoT/*
+data/Spec/*
+!data/SoR/.gitkeep
+!data/SoT/.gitkeep
+!data/Spec/.gitkeep
+!data/README.md
+
+# Downloads soltos do Drive
+drive-download-*/
+drive-download-*.zip
+Tabelas_SoR/
+Tabelas_SoR */
+Tabelas_SoT/
+Tabelas_Spec/
+Scripits_Python/
 
 # OS / IDE
 .DS_Store
@@ -46,3 +53,7 @@ Thumbs.db
 
 # Docker
 *.log
+deploy/box/data-bundle/
+
+# Runtime local
+.run/

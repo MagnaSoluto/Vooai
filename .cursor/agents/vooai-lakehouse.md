@@ -1,6 +1,6 @@
 ---
 name: vooai-lakehouse
-description: Camadas Bronze/Silver/Gold no Databricks Free, dicionário e export para data/gold. Use ao desenhar tabelas Delta, features ou a ponte da API.
+description: Camadas SoR/SoT/Spec (Bronze/Silver/Gold) no Databricks Free, dicionário e export para data/Spec. Use ao desenhar tabelas Delta, features ou a ponte da API.
 ---
 
 Você opera o **lakehouse** VooAI. Skill: `.cursor/skills/vooai-lakehouse/SKILL.md`. Arquitetura: `docs/arquitetura.md`.

@@ -1,71 +1,44 @@
 # VooAI
 
-Sinal claro para comprar ou esperar. Projeto acadêmico (Mackenzie — Hands-On Fundamentos de Dados) que integra cotações de passagens nacionais, histórico ANAC e modelos de preço para recomendar **COMPRAR**, **AGUARDAR** ou **MONITORAR**.
-
-Este repositório Git é a **fonte de verdade**. O Databricks Free Edition é só compute, Delta Lake e dashboard acadêmico.
+Sinal claro para comprar ou esperar. Cotações ao vivo (Google Flights / SerpAPI) cruzadas com a Spec de risco e preço materializada em parquet.
 
 ## Monorepo
 
 | Pasta | Função |
 |-------|--------|
-| [`apps/api`](apps/api) | FastAPI — consome Gold exportada |
-| [`apps/web`](apps/web) | React + Vite — produto |
+| [`apps/api`](apps/api) | FastAPI — SerpAPI + Spec parquet |
+| [`apps/web`](apps/web) | React + Vite — busca e resultado |
 | [`branding`](branding) | Brand book HTML |
-| [`collectors`](collectors) | Scripts Python de cotação |
-| [`data`](data) | Exports locais (volumes pesados no `.gitignore`) |
-| [`docs`](docs) | Briefing, arquitetura, dicionário |
-| [`notebooks`](notebooks) | Ingestão, EDA, ML (sincronizar com o Free) |
-| [`schemas`](schemas) | Contratos JSON |
-| [`scripts`](scripts) | Sync Databricks + export Gold |
-| [`.cursor`](.cursor) | Skills e agentes do projeto |
+| [`data`](data) | `SoR` / `SoT` / `Spec` (gitignore) |
+| [`notebooks`](notebooks) | `08` ETL · `09` modelagem · `10` simulador |
+| [`docs`](docs) | Briefing, arquitetura, [deploy acadêmico](docs/deploy-academico.md) |
 
-## Arquitetura
+## Fluxo
 
-Desenho oficial: [`docs/arquitetura.md`](docs/arquitetura.md). Briefing: [`docs/Briefing_Projeto_Voo_V4.pdf`](docs/Briefing_Projeto_Voo_V4.pdf).
+SoR → SoT → Spec (notebooks) → API (`/search`) junta Google Flights + `spec_modelos_risco` → web.
 
-Fluxo: fontes → Bronze → Silver → Gold (Databricks Free) → dashboard AI/BI **e** export `data/gold/` → API → web.
+## Rodar local
 
-## Rodar a plataforma local
-
-Pré-requisitos: Python 3.11+, Node 20+, Docker opcional.
+Pré-requisitos: `SERPAPI_API_KEY`, pastas `data/SoT` (aeroportos) e `data/Spec` (parquet Gold). Detalhe e deploy na box FourDev/SDR: [`docs/deploy-academico.md`](docs/deploy-academico.md).
 
 ```bash
 # API
 cd apps/api
 python -m venv .venv
-.venv\Scripts\activate
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+cp .env.example .env        # preencher SERPAPI_API_KEY
 uvicorn app.main:app --reload --port 8000
 
-# Front (outro terminal)
+# Front
 cd apps/web
 npm install
 npm run dev
 ```
 
-Ou:
-
-```bash
-docker compose up --build
-```
+Atalho macOS: `open scripts/dev-up.command` · Compose: `docker compose up --build`
 
 - API: http://localhost:8000/docs
 - Web: http://localhost:5173
-- Brand book: abrir [`branding/vooai-brand-book.html`](branding/vooai-brand-book.html) no navegador
 
-Sem cluster Databricks, a API lê as amostras em [`data/gold/sample`](data/gold/sample). Com Gold real, rode [`scripts/export_gold.py`](scripts/export_gold.py) (ver [`scripts/sync_notebooks.md`](scripts/sync_notebooks.md)).
-
-## Marca
-
-Tokens e regras visuais: [`branding/vooai-brand-book.html`](branding/vooai-brand-book.html). O front não inventa paleta nem fonte fora do book.
-
-## Agentes e skills
-
-Versionados em `.cursor/`. Índice: skill `vooai-orquestracao`. Não usar stacks OCI/Carbon neste repositório.
-
-## Escopo do MVP
-
-- 10–30 rotas nacionais
-- Regra inicial ±5% na variação prevista
-- Confiabilidade operacional (atraso/cancelamento ANAC)
-- Sem dados pessoais
+Janela da Spec: `GET /health` (`gold_date_min` / `gold_date_max`). MVP atual = malha doméstica BR; internacional documentado na seção 5 do runbook.

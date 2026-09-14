@@ -1,21 +1,19 @@
 ---
 name: vooai-api
 description: >-
-  FastAPI VooAI: contratos REST, leitura de data/gold, OpenAPI. Use when
-  editing apps/api, endpoints /routes /quotes /recommendations /reliability
-  /models/metrics, or the Gold CSV loader.
+  FastAPI VooAI: SerpAPI Google Flights + Spec parquet. Use when
+  editing apps/api, /search, /airports, /reliability, /models/metrics.
 ---
 
 # API FastAPI
 
-Path: `apps/api`. Contrato: `schemas/openapi.yaml`.
+Path: `apps/api`.
 
-Endpoints: `/health`, `/routes`, `/quotes/search`, `/recommendations/{route_id}`, `/reliability`, `/models/metrics`.
-
-- Ler CSV Gold via `VOOAI_GOLD_DIR` (default: `data/gold`, fallback `data/gold/sample`).
-- Não treinar ML na API.
-- CORS aberto para o Vite local.
-- Pydantic nos responses; 404 se rota sem recomendação.
-- Auth desligada no MVP acadêmico.
+- `GET /search?origin=&dest=&date=` — cotação SerpAPI + join `spec_modelos_risco`
+- `GET /airports?q=` — resolução cidade/IATA via SoT aeroportos
+- `GET /health` — Spec path, janela de datas, flag SerpAPI
+- Env: `SERPAPI_API_KEY`, `VOOAI_SPEC_DIR`, `VOOAI_DATA_DIR`
+- Não treina ML. Lê parquet Spec/SoT.
+- Ação COMPRAR/AGUARDAR/MONITORAR: regra ±5% vs preço estimado/mediana
 
 Subir: `uvicorn app.main:app --reload --port 8000`.

@@ -10,7 +10,7 @@ description: >-
 
 - Rotas: `docs/rotas-mvp.md` (10–30).
 - Schema: `docs/dicionario-de-dados.md` (quotes).
-- Código: `collectors/`. Saída em `data/raw/` (gitignore) → notebook 02 → Bronze.
+- Código: `collectors/`. Saída em `data/SoR/` (gitignore) → notebook 02 / 08 → SoT.
 - Campos mínimos: rota, cia, collected_at, departure_at, lead_days, price_brl, duration_min, stops.
 - Documentar a fonte e respeitar ToS. Sem martelar endpoints.
 - Frequência sugerida no MVP: 1–2 coletas/dia por rota.

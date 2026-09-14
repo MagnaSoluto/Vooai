@@ -9,6 +9,7 @@ description: >-
 
 - `README.md` — visão, pastas, como rodar.
 - `docs/arquitetura.md` — desenho oficial (não divergir sem atualizar o mermaid).
+- `docs/deploy-academico.md` — runbook local/Docker/box SDR (parquet, sem Postgres) + roadmap internacional.
 - `docs/dicionario-de-dados.md` / `docs/rotas-mvp.md`.
 - `docs/Briefing_Projeto_Voo_V4.pdf` — requisitos da disciplina.
 - `docs/apresentacao/` — slides.

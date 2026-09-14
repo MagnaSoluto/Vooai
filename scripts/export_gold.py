@@ -1,41 +1,24 @@
-"""Materializa tabelas Gold em data/gold/ para a API local.
+"""Utilitário legado — Spec já materializada pelos notebooks 08–10.
 
-MVP: copia as amostras versionadas. Com Databricks Free, substitua
-`copy_samples()` por download SQL / arquivos do Unity Catalog.
+A API lê diretamente `data/Spec/spec_modelos_risco/*.parquet`.
+Use os notebooks para regenerar a Spec no Databricks/local.
 """
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SAMPLE = ROOT / "data" / "gold" / "sample"
-TARGET = ROOT / "data" / "gold"
-
-TABLES = (
-    "routes.csv",
-    "quotes.csv",
-    "recommendations.csv",
-    "reliability.csv",
-    "model_metrics.csv",
-)
-
-
-def copy_samples() -> None:
-    TARGET.mkdir(parents=True, exist_ok=True)
-    for name in TABLES:
-        src = SAMPLE / name
-        if not src.exists():
-            raise FileNotFoundError(f"Amostra ausente: {src}")
-        dest = TARGET / name
-        shutil.copyfile(src, dest)
-        print(f"ok {dest.relative_to(ROOT)}")
+SPEC = ROOT / "data" / "Spec" / "spec_modelos_risco"
 
 
 def main() -> None:
-    copy_samples()
-    print("Gold local pronta. A API lê data/gold/*.csv (fallback: sample/).")
+    files = sorted(SPEC.glob("spec_modelos_risco_*.parquet")) if SPEC.exists() else []
+    if not files:
+        raise SystemExit(f"Nenhum parquet em {SPEC}. Rode o notebook 09.")
+    print("Spec disponível:")
+    for f in files:
+        print(" ", f.relative_to(ROOT), f.stat().st_size)
 
 
 if __name__ == "__main__":

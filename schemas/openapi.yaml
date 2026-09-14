@@ -1,71 +1,104 @@
 openapi: 3.0.3
 info:
   title: VooAI API
-  version: 0.1.0
-  description: Consumo da camada Gold (export local). Não treina modelos.
-servers:
-  - url: http://localhost:8000
+  version: 0.2.0
+  description: Google Flights (SerpAPI) + Spec parquet (risco/preço).
 paths:
   /health:
     get:
-      summary: Saúde
+      summary: Saúde e janela Spec
       responses:
         "200":
           description: OK
-  /routes:
+  /airports:
     get:
-      summary: Rotas do MVP
+      summary: Busca cidade/IATA
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
       responses:
         "200":
-          description: Lista de rotas
-  /quotes/search:
+          description: Lista
+  /search:
     get:
-      summary: Cotações atuais e resumo histórico
+      summary: Busca voos + scores Spec
       parameters:
         - in: query
           name: origin
           required: true
-          schema: { type: string }
+          schema:
+            type: string
         - in: query
           name: dest
           required: true
-          schema: { type: string }
+          schema:
+            type: string
         - in: query
           name: date
-          required: false
-          schema: { type: string, format: date }
-      responses:
-        "200":
-          description: Cotações
-  /recommendations/{route_id}:
-    get:
-      summary: Recomendação COMPRAR / AGUARDAR / MONITORAR
-      parameters:
-        - in: path
-          name: route_id
           required: true
-          schema: { type: string }
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: return_date
+          required: false
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: trip_type
+          required: false
+          schema:
+            type: string
+            enum: [ida, ida_volta]
+            default: ida
+        - in: query
+          name: flex_dates
+          required: false
+          description: >
+            off = só a data pedida. nearby/weekdays/weekends amplia a busca
+            em ±3 dias (úteis ou fins de semana). Sem a flag, a API ainda pode
+            devolver nearby_hint se a Spec indicar datas próximas bem mais baratas.
+          schema:
+            type: string
+            enum: [off, nearby, weekdays, weekends]
+            default: off
       responses:
         "200":
-          description: Recomendação
-        "404":
-          description: Rota sem Gold
+          description: Ofertas ranqueadas (com nearby_hint opcional)
+        "400":
+          description: Parâmetros inválidos
+        "502":
+          description: Falha SerpAPI
   /reliability:
     get:
-      summary: Atraso, cancelamento e ranking
+      summary: Histórico de companhias (Spec)
+      responses:
+        "200":
+          description: OK
+  /dashboard/summary:
+    get:
+      summary: Dashboard Spec (malha doméstica BR)
       parameters:
         - in: query
-          name: airline
-          schema: { type: string }
+          name: limit
+          schema:
+            type: integer
+            default: 10
         - in: query
-          name: route
-          schema: { type: string }
+          name: min_flights
+          schema:
+            type: integer
+            default: 50
       responses:
         "200":
-          description: Indicadores ANAC
+          description: KPIs, cias, corredores e métricas
   /models/metrics:
     get:
-      summary: MAE / RMSE dos experimentos
+      summary: Métricas dos modelos Spec
       responses:
         "200":
-          description: Métricas
+          description: OK

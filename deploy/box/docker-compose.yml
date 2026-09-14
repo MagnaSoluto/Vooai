@@ -1,0 +1,43 @@
+# VooAI na box FourDev — imagens ECR; rede sdr-box_default (Caddy).
+name: vooai-box
+
+services:
+  vooai-api:
+    image: ${VOOAI_API_IMAGE}
+    container_name: vooai-api
+    restart: unless-stopped
+    mem_limit: 512m
+    env_file:
+      - /opt/vooai/api.env
+    environment:
+      VOOAI_DATA_DIR: /data
+      VOOAI_SPEC_DIR: /data/Spec
+    networks:
+      - sdr-box_default
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 25s
+
+  vooai-web:
+    image: ${VOOAI_WEB_IMAGE}
+    container_name: vooai-web
+    restart: unless-stopped
+    mem_limit: 64m
+    depends_on:
+      vooai-api:
+        condition: service_healthy
+    networks:
+      - sdr-box_default
+
+networks:
+  sdr-box_default:
+    external: true

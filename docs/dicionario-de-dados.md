@@ -1,6 +1,6 @@
 # Dicionário de dados (MVP)
 
-Tipos e nomes alinhados às tabelas Gold exportadas em `data/gold/`. Evoluir após EDA.
+Tipos e nomes alinhados às tabelas Spec (Gold produto) exportadas em `data/Spec/`. Evoluir após EDA.
 
 ## gold.routes
 

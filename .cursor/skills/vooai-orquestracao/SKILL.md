@@ -17,7 +17,8 @@ Projeto acadêmico Mackenzie. Git = fonte de verdade. Databricks **Free Edition*
 | `branding/` | vooai-brand |
 | `collectors/` | vooai-ingestao |
 | `notebooks/` | ingestão / lakehouse / ml |
-| `data/gold/` | lakehouse + backend |
+| `data/Spec/` | lakehouse + backend (Gold produto) |
+| `notebooks/08–10` | ETL, modelagem, simulador Gflights |
 | `apps/api` | vooai-backend |
 | `apps/web` | vooai-frontend |
 | `docs/arquitetura.md` | vooai-docs |

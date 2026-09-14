@@ -1,8 +1,11 @@
+# Build: docker build -f deploy/box/Dockerfile.api .
+# Inclui Spec/SoT mínimos (demo acadêmica; sem volume S3 na box).
 FROM python:3.12-slim
 WORKDIR /app
 COPY apps/api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY apps/api/app ./app
+COPY deploy/box/data-bundle/ /data/
 ENV VOOAI_DATA_DIR=/data
 ENV VOOAI_SPEC_DIR=/data/Spec
 EXPOSE 8000

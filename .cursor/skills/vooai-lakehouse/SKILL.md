@@ -18,6 +18,8 @@ Arquitetura: `docs/arquitetura.md`. Dicionário: `docs/dicionario-de-dados.md`.
 
 Catálogo sugerido: `vooai.bronze|silver|gold`.
 
-Ponte produto: `scripts/export_gold.py` → `data/gold/*.csv`. API não consulta o cluster por request no MVP. Amostras: `data/gold/sample/`.
+Ponte produto: `scripts/export_gold.py` → `data/Spec/*.csv`. API não consulta o cluster por request no MVP. Amostras: `data/Spec/sample/`.
+
+No disco local as camadas se chamam **SoR** (Bronze), **SoT** (Silver) e **Spec** (Gold).
 
 Sync: `scripts/sync_notebooks.md`. Governança simulada (catálogo, LGPD, classificação). Sem OCI.
