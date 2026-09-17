@@ -136,4 +136,14 @@ O VooAI é a prova de conceito desse caminho no ecossistema Databricks Free — 
 - Métricas Spec: `data/Spec/spec_metricas_modelos/`
 - App: `https://vooai.magnasoluto.com.br` (ambiente acadêmico / demo)
 
-*Autor: Adriano Santos — MBA Engenharia de Dados · projeto VooAI (grupo Magna Soluto / Mackenzie).*
+### Créditos — colaboração do MBA
+
+Projeto **VooAI** feito em colaboração com:
+
+- [Agnes Ruescas](https://www.linkedin.com/in/agnesruescas/)
+- [Gustavo de Paula](https://www.linkedin.com/in/gustavodepaulades/)
+- [Santina Cortinove](https://www.linkedin.com/in/santina-cortinove-362bb9161/)
+- [Raul Chavarria](https://www.linkedin.com/in/raulchavarria/)
+- [Brunno Mambro](https://www.linkedin.com/in/brunno-mambro-232639b3/)
+
+*Texto: Adriano Santos — MBA Engenharia de Dados · grupo Magna Soluto / Mackenzie.*
