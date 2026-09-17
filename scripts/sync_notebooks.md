@@ -7,3 +7,8 @@ Notebooks canônicos:
 3. `10_simulador_voos.ipynb` — SerpAPI + join Spec (referência da API)
 
 A API local não exporta CSV: lê `data/Spec/spec_modelos_risco/*.parquet` e `data/SoT/SoT_aeroportos/*.parquet`.
+
+4. `11_artigo_vooai_dado_em_valor.ipynb` — artigo TCC/Databricks (dado → valor + métricas)
+
+Import no Free: Workspace → Import → este `.ipynb` (ou clone do Git + Upload).
+Fonte markdown: `docs/apresentacao/artigo-databricks-vooai.md`.
