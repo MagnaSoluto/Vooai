@@ -22,7 +22,7 @@ Aprendizado que levo do TCC / MBA:
 2. Gold/Spec versionada (>1M linhas de risco no recorte do MVP, ~40 MB no Git) vale mais que Bronze gigante sem dono.  
 3. Separar treino (Databricks) de serving (API) é maturidade, não gambiarra.  
 
-Feito **em colaboração** com o grupo do MBA — Magna Soluto / VooAI:
+Feito **em colaboração** com o grupo do MBA — projeto **VooAI**:
 
 Agnes Ruescas · Gustavo de Paula · Santina Cortinove · Raul Chavarria · Brunno Mambro  
 (LinkedIns no artigo: datadriks.com.br/artigos/vooai-do-dado-bruto-a-decisao)

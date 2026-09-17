@@ -146,4 +146,4 @@ Projeto **VooAI** feito em colaboração com:
 - [Raul Chavarria](https://www.linkedin.com/in/raulchavarria/)
 - [Brunno Mambro](https://www.linkedin.com/in/brunno-mambro-232639b3/)
 
-*Texto: Adriano Santos — MBA Engenharia de Dados · grupo Magna Soluto / Mackenzie.*
+*Texto: Adriano Santos — MBA Engenharia de Dados · projeto VooAI / Mackenzie.*
