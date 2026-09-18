@@ -49,11 +49,10 @@ Do pipeline à UI: isso, pra mim, é data engineering de verdade.
 
 ## Sugestão de mídia
 
-1. Print do produto (Home ou Resultado com COMPRAR/AGUARDAR/MONITORAR).  
-2. Print do dashboard / fluxo SoR→SoT→Spec (mermaid do `docs/arquitetura.md`).  
-3. Tabela pequena de métricas (MAE/RMSE + AUC) — reforça credibilidade.
+1. Print da **Home** (busca + “Ver sinal”) — vitrine do produto.  
+2. Print do **Resultado / board** com COMPRAR e AGUARDAR por cia.  
+3. Print dos **KPIs** (ofertas, menor preço, score).  
 
-## CTA opcional (última linha)
+Evite abrir com print do GitHub ou do monorepo: para negócio, a entrega é a **tela**, não o código.
 
-“Se quiser o artigo técnico completo (Databricks + métricas), comento ‘artigo’ que mando o link.”  
-*(Anexo ou link: `docs/apresentacao/artigo-databricks-vooai.md` no repo / Medium / Databricks Community.)*
+Arquivos prontos no portal: `/images/vooai/home-busca.png`, `board-sinal.png`, `resultado-kpis.png`.
