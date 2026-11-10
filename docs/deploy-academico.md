@@ -319,7 +319,9 @@ Dev/`*`: ok. Box com hosts separados: `*` ainda funciona; endurecer listando a o
 
 ### 6.5 Observabilidade mínima
 
-Logs stdout da task uvicorn. Não misturar com pipelines SDR. Contar mentalmente chamadas SerpAPI no dia da demo.
+Logs stdout da task uvicorn. Não misturar com pipelines SDR.
+
+**Telemetria de produto** (visitas + funil): front envia `POST /events` (`pageview`, `search`, `login`, `topup`, …) sem PII; webhook Asaas registra `topup` paid. Persistência em `product_events` (Postgres/SQLite). Resumo admin: `GET /events/summary` com `X-VooAI-Admin-Token`. Flags: `VOOAI_TELEMETRY_ENABLED` / `VITE_TELEMETRY` (default on).
 
 ---
 

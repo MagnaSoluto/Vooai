@@ -12,6 +12,8 @@ from .airlines import booking_urls
 from .gflights import cotar_google_flights
 from .normalize import expr_companhia_normalizada, expr_texto_normalizado, normalizar_texto
 from .paths import spec_dir
+from .pricing import quote_price
+from . import quote_cache
 from .scoring import (
     adicionar_score_preco,
     adicionar_score_risco_geral,
@@ -237,6 +239,55 @@ def _enrich_leg(df: pl.DataFrame, data_voo: date, leg: str) -> list[dict]:
     return flights
 
 
+def try_cached_viagem(
+    origem: str,
+    destino: str,
+    data_viagem: str | date,
+    data_volta: str | date | None = None,
+    flex_dates: str | None = "off",
+) -> dict | None:
+    """Retorna payload se houver cache hit; None caso contrário. Não chama SerpAPI."""
+    data_voo = _parse_date(data_viagem)
+    volta = _parse_date(data_volta) if data_volta else None
+    flex = _normalize_flex(flex_dates)
+    data_min, data_max = gold_date_range()
+    if data_voo < data_min or data_voo > data_max:
+        raise ValueError(
+            f"A data de ida {data_voo} está fora do período materializado na Spec "
+            f"({data_min} a {data_max})."
+        )
+    if volta is not None:
+        if volta < data_voo:
+            raise ValueError("A data de volta deve ser igual ou posterior à data de ida.")
+        if volta > data_max:
+            raise ValueError(
+                f"A data de volta {volta} está fora do período materializado na Spec "
+                f"(até {data_max})."
+            )
+    iatas_origem = resolver_local_para_iatas(origem)
+    iatas_destino = resolver_local_para_iatas(destino)
+    cache_key = quote_cache.make_cache_key(
+        iatas_origin=iatas_origem,
+        iatas_destination=iatas_destino,
+        date=data_voo.isoformat(),
+        return_date=volta.isoformat() if volta else None,
+        flex_dates=flex,
+    )
+    cached = quote_cache.get(cache_key)
+    if cached is None:
+        return None
+    out = quote_cache.wrap_cached_payload(cached, hit=True)
+    out["pricing"] = quote_price(
+        trip_type="ida_volta" if volta else "ida",
+        flex_dates=flex,
+        return_date=volta.isoformat() if volta else None,
+    ).as_dict()
+    # Cliente sempre paga; hit só economiza SerpAPI (margem nossa).
+    out["pricing"]["charged"] = True
+    out["pricing"]["serpapi_spent"] = False
+    return out
+
+
 def simular_viagem(
     origem: str,
     destino: str,
@@ -265,17 +316,51 @@ def simular_viagem(
     iatas_origem = resolver_local_para_iatas(origem)
     iatas_destino = resolver_local_para_iatas(destino)
 
+    cache_key = quote_cache.make_cache_key(
+        iatas_origin=iatas_origem,
+        iatas_destination=iatas_destino,
+        date=data_voo.isoformat(),
+        return_date=volta.isoformat() if volta else None,
+        flex_dates=flex,
+    )
+    cached = quote_cache.get(cache_key)
+    if cached is not None:
+        out = quote_cache.wrap_cached_payload(cached, hit=True)
+        out["pricing"] = quote_price(
+            trip_type="ida_volta" if volta else "ida",
+            flex_dates=flex,
+            return_date=volta.isoformat() if volta else None,
+        ).as_dict()
+        out["pricing"]["charged"] = True
+        out["pricing"]["serpapi_spent"] = False
+        return out
+
+    def _finish(payload: dict) -> dict:
+        quote_cache.set(cache_key, payload)
+        out = quote_cache.wrap_cached_payload(payload, hit=False)
+        pricing = quote_price(
+            trip_type="ida_volta" if volta else "ida",
+            flex_dates=flex,
+            return_date=volta.isoformat() if volta else None,
+        ).as_dict()
+        pricing["charged"] = True
+        pricing["serpapi_spent"] = True
+        out["pricing"] = pricing
+        return out
+
     if flex != "off":
-        return _simular_flex(
-            origem=origem,
-            destino=destino,
-            data_voo=data_voo,
-            data_volta=volta,
-            iatas_origem=iatas_origem,
-            iatas_destino=iatas_destino,
-            flex=flex,
-            dmin=data_min,
-            dmax=data_max,
+        return _finish(
+            _simular_flex(
+                origem=origem,
+                destino=destino,
+                data_voo=data_voo,
+                data_volta=volta,
+                iatas_origem=iatas_origem,
+                iatas_destino=iatas_destino,
+                flex=flex,
+                dmin=data_min,
+                dmax=data_max,
+            )
         )
 
     if volta is None:
@@ -326,7 +411,7 @@ def simular_viagem(
     payload["nearby_hint"] = _spec_nearby_hint(
         iatas_origem, iatas_destino, data_voo, best_price
     )
-    return payload
+    return _finish(payload)
 
 
 def _simular_flex(

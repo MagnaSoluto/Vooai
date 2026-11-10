@@ -1,17 +1,16 @@
 # Collectors — cotações
 
-Rotina Python de coleta periódica (rota, companhia, datas, horários, duração, escalas, antecedência).
+A implementação viva está em **`pipelines/`** (fábrica barata na box AWS).
 
-## Regras
+| Antes (stub) | Agora |
+|--------------|--------|
+| Script a implementar | `python -m pipelines.collect_quotes` |
+| SoR destino | `data/SoR/SoR_cotacoes/dt=YYYY-MM-DD/*.parquet` |
+| Cadência | 1–2×/dia — ver `pipelines/crontab.example` |
 
-- MVP: rotas em [`docs/rotas-mvp.md`](../docs/rotas-mvp.md).
-- Schema de persistência Bronze: ver [`docs/dicionario-de-dados.md`](../docs/dicionario-de-dados.md) (`gold.quotes` deriva daqui).
-- Não versionar dumps grandes; gravar JSON/CSV em `data/SoR/` (gitignore) e subir no lakehouse.
-- Documentar a fonte escolhida pelo grupo e respeitar termos de uso. Sem scraping agressivo.
+ANAC VRA: `python -m pipelines.ingest_anac_vra --poll|--latest`
 
-## Frequência sugerida (calibrar)
+ETL leve cotações: `python -m pipelines.etl_quotes`  
+Heavy ANAC→Spec: `pipelines/run_heavy_etl.sh` (mensal)
 
-- 1–2 coletas/dia por rota do MVP durante o desenvolvimento.
-- Registrar `collected_at` em UTC e `lead_days` derivado.
-
-Próximo passo: implementar o script quando a fonte de cotação estiver fechada.
+Documentação: [`pipelines/README.md`](../pipelines/README.md) e [`docs/plano-producao-completo.md`](../docs/plano-producao-completo.md).

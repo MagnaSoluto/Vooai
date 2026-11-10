@@ -1,0 +1,14 @@
+# Crontab sugerido — box AWS VooAI (horário America/Sao_Paulo)
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+VOOAI=/opt/vooai/repo
+LOG=/var/log/vooai
+
+# Collector de cotações 06:15 e 18:15 (1–2×/dia)
+15 6,18 * * * cd $VOOAI && . .venv/bin/activate && set -a && . /opt/vooai/api.env && set +a && python -m pipelines.run_nightly --skip-anac >> $LOG/nightly.log 2>&1
+
+# Poll ANAC toda segunda 04:00 (baixa só se mês novo)
+0 4 * * 1 cd $VOOAI && . .venv/bin/activate && set -a && . /opt/vooai/api.env && set +a && python -m pipelines.ingest_anac_vra --latest >> $LOG/anac.log 2>&1
+
+# Heavy ETL mensal (dia 3, 02:00) — só se a box tiver RAM; senão rode manual
+0 2 3 * * cd $VOOAI && bash pipelines/run_heavy_etl.sh >> $LOG/heavy.log 2>&1

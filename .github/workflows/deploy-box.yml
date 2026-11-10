@@ -1,0 +1,79 @@
+name: Deploy box VooAI
+
+# Igual Leads: imagens no runner GitHub (ubuntu) — NÃO no Docker do Mac.
+# MagnaSoluto/Vooai — só projeto vooai-box na EC2 compartilhada.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-box-vooai
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: us-east-1
+  DEPLOY_SHA: ${{ github.sha }}
+
+jobs:
+  build:
+    name: images (api + web)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+      - name: Bundle Spec/SoT + build/push ECR
+        env:
+          AWS_DEFAULT_REGION: ${{ env.AWS_REGION }}
+          VOOAI_IMAGE_TAG: ${{ env.DEPLOY_SHA }}
+          VOOAI_BUILD_ONLY: "1"
+          SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${SERPAPI_API_KEY:-}" ]]; then
+            echo "SERPAPI_API_KEY secret obrigatório" >&2
+            exit 1
+          fi
+          bash scripts/deploy-box.sh
+
+  deploy:
+    name: box (vooai only)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Publish vooai-box on the shared EC2
+        env:
+          AWS_DEFAULT_REGION: ${{ env.AWS_REGION }}
+          VOOAI_IMAGE_TAG: ${{ env.DEPLOY_SHA }}
+          VOOAI_SKIP_BUILD: "1"
+          INSTANCE_ID: i-0ce27df52519a2881
+          SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+        run: bash scripts/deploy-box.sh
+      - name: Smoke + siblings
+        run: |
+          set -euo pipefail
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' https://vooai.magnasoluto.com.br/api/health || true)
+            echo "health $code"
+            [ "$code" = "200" ] && break
+            sleep 10
+          done
+          [ "${code:-}" = "200" ]
+          curl -sS -o /dev/null -w 'events %{http_code}\n' -X POST https://vooai.magnasoluto.com.br/api/events \
+            -H 'Content-Type: application/json' \
+            -d '{"events":[{"name":"pageview","props":{"path":"/"}}]}'
+          curl -sS https://vooai.magnasoluto.com.br/api/pricing | python3 -c \
+            'import sys,json; d=json.load(sys.stdin); assert d.get("magic_link_available") is True, d; print("magic_ok")'

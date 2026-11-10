@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import Nav from "../components/Nav.jsx";
 import ComboOpsChart from "../components/ComboOpsChart.jsx";
-import { fetchFlightDetail, searchFlights } from "../api.js";
+import { ApiError, fetchFlightDetail, humanError, searchFlights } from "../api.js";
+import { leadDaysBucket, track } from "../telemetry.js";
 
 const PAGE_SIZE = 8;
 
@@ -708,26 +709,65 @@ export default function Results() {
   const flexDates = params.get("flex") || "off";
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const [errorStatus, setErrorStatus] = useState(0);
+  const [errorDetail, setErrorDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
 
   useEffect(() => {
     let cancel = false;
+    const ac = new AbortController();
     setLoading(true);
     setError("");
+    setErrorStatus(0);
+    setErrorDetail(null);
     setData(null);
-    searchFlights({ origin, dest, date, returnDate, tripType, flexDates })
+    searchFlights({ origin, dest, date, returnDate, tripType, flexDates, signal: ac.signal })
       .then((res) => {
-        if (!cancel) setData(res);
+        if (!cancel) {
+          setData(res);
+          window.dispatchEvent(new Event("vooai-auth"));
+          const n = Array.isArray(res?.flights)
+            ? res.flights.length
+            : Array.isArray(res?.offers)
+              ? res.offers.length
+              : Array.isArray(res?.results)
+                ? res.results.length
+                : null;
+          track("search", {
+            trip_type: tripType,
+            has_return: Boolean(returnDate),
+            flex: flexDates || "off",
+            lead_days_bucket: leadDaysBucket(date),
+            results_n: n,
+            origin_iata: res?.origin_iata || res?.iata_origin || undefined,
+            dest_iata: res?.dest_iata || res?.iata_destination || undefined,
+          });
+        }
       })
       .catch((err) => {
-        if (!cancel) setError(err.message);
+        if (cancel || err?.name === "AbortError") return;
+        if (err instanceof ApiError) {
+          setErrorStatus(err.status);
+          setErrorDetail(err.detail);
+          setError(humanError(err));
+          if (err.status === 401 || err.status === 402) {
+            track("search_denied", {
+              http_status: err.status,
+              trip_type: tripType,
+              lead_days_bucket: leadDaysBucket(date),
+            });
+          }
+        } else {
+          setError(humanError(err));
+        }
       })
       .finally(() => {
         if (!cancel) setLoading(false);
       });
     return () => {
       cancel = true;
+      ac.abort();
     };
   }, [origin, dest, date, returnDate, tripType, flexDates]);
 
@@ -813,7 +853,30 @@ export default function Results() {
                 : "Consultando ofertas e histórico da rota…"}
           </p>
         )}
-        {error && <p className="status error-box">Falha na busca: {error}</p>}
+        {error && (
+          <div className="status error-box billing-error">
+            <p>
+              {errorStatus === 401
+                ? "Entre na conta para consultar o sinal."
+                : errorStatus === 402
+                  ? `Saldos insuficientes${
+                      errorDetail?.required_saldos != null
+                        ? ` — precisa de ${Number(errorDetail.required_saldos).toLocaleString("pt-BR")} (você tem ${Number(errorDetail.balance_saldos ?? 0).toLocaleString("pt-BR")})`
+                        : errorDetail?.required_brl != null
+                          ? ` — precisa de ${fmt(errorDetail.required_brl)} (saldo ${fmt(errorDetail.balance_brl)})`
+                          : ""
+                    }.`
+                  : error}
+            </p>
+            {(errorStatus === 401 || errorStatus === 402) && (
+              <p>
+                <Link className="cta inline" to={`/conta?next=${encodeURIComponent(window.location.pathname + window.location.search)}`}>
+                  {errorStatus === 401 ? "Entrar / criar conta" : "Recarregar saldo"}
+                </Link>
+              </p>
+            )}
+          </div>
+        )}
 
         {data && (
           <>
@@ -826,6 +889,26 @@ export default function Results() {
                 <span>Menor preço</span>
                 <strong>{fmt(summary.lowest_price_brl)}</strong>
               </div>
+              {data.pricing && (
+                <div className="kpi">
+                  <span>Débito</span>
+                  <strong>
+                    {data.pricing.saldos != null
+                      ? `${Number(data.pricing.saldos).toLocaleString("pt-BR")} saldos`
+                      : fmt(data.pricing.price_brl)}
+                  </strong>
+                </div>
+              )}
+              {(data.wallet_balance_saldos != null || data.wallet_balance_brl != null) && (
+                <div className="kpi">
+                  <span>Seus saldos</span>
+                  <strong>
+                    {data.wallet_balance_saldos != null
+                      ? Number(data.wallet_balance_saldos).toLocaleString("pt-BR")
+                      : fmt(data.wallet_balance_brl)}
+                  </strong>
+                </div>
+              )}
               {isRT && (
                 <>
                   <div className="kpi">
@@ -855,6 +938,24 @@ export default function Results() {
                 </>
               )}
             </section>
+            {data.pricing && (
+              <p className="billing-notice" role="status">
+                {`Consulta debitada: ${
+                  data.pricing.saldos != null
+                    ? `${Number(data.pricing.saldos).toLocaleString("pt-BR")} saldos`
+                    : fmt(data.pricing.price_brl)
+                }${
+                  data.pricing.credits > 1
+                    ? ` · até ${data.pricing.credits} consultas SerpAPI`
+                    : ""
+                }.`}
+                {data.wallet_balance_saldos != null
+                  ? ` Saldos atuais: ${Number(data.wallet_balance_saldos).toLocaleString("pt-BR")}.`
+                  : data.wallet_balance_brl != null
+                    ? ` Saldo atual: ${fmt(data.wallet_balance_brl)}.`
+                    : " Entre em Conta para acompanhar os saldos."}
+              </p>
+            )}
 
             <section className="score-panel">
               <div className={`score-ring ${scoreTone(routeScore.safety_score)}`}>

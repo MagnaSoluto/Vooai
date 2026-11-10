@@ -1,4 +1,15 @@
 services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   api:
     build:
       context: .
@@ -6,11 +17,27 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/data:ro
+      # RW: Spec ro + SQLite billing
+      - ./data:/data
     environment:
       VOOAI_DATA_DIR: /data
       VOOAI_SPEC_DIR: /data/Spec
       SERPAPI_API_KEY: ${SERPAPI_API_KEY:-}
+      REDIS_URL: redis://redis:6379/0
+      VOOAI_QUOTE_CACHE_TTL_SEC: ${VOOAI_QUOTE_CACHE_TTL_SEC:-1200}
+      VOOAI_SERPAPI_COST_BRL: ${VOOAI_SERPAPI_COST_BRL:-0.08}
+      VOOAI_BILLING_ENABLED: ${VOOAI_BILLING_ENABLED:-0}
+      VOOAI_ADMIN_TOKEN: ${VOOAI_ADMIN_TOKEN:-dev-change-me}
+      # Preferir Postgres FourDev (db vooai). Vazio = SQLite em /data.
+      VOOAI_DATABASE_URL: ${VOOAI_DATABASE_URL:-}
+      VOOAI_DB_PATH: /data/vooai_billing.sqlite
+      VOOAI_RATE_LIMIT_PER_MIN: ${VOOAI_RATE_LIMIT_PER_MIN:-30}
+      # Mesmos nomes do SDR — só ligar quando for cobrar
+      BILLING_API_URL: ${BILLING_API_URL:-}
+      BILLING_API_TOKEN: ${BILLING_API_TOKEN:-}
+    depends_on:
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
       interval: 10s
@@ -25,6 +52,31 @@ services:
       - "5173:5173"
     environment:
       VITE_API_URL: http://localhost:8000
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # Fábrica barata: mesmo código, volume RW, sem Glue. Rode jobs sob demanda:
+  #   docker compose run --rm worker python -m pipelines.ingest_anac_vra --poll
+  #   docker compose run --rm worker python -m pipelines.run_nightly --max-routes 2
+  worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    profiles: ["jobs"]
+    working_dir: /repo
+    volumes:
+      - ./:/repo
+      - ./data:/data
+    environment:
+      VOOAI_DATA_DIR: /data
+      VOOAI_SPEC_DIR: /data/Spec
+      SERPAPI_API_KEY: ${SERPAPI_API_KEY:-}
+      VOOAI_ADMIN_TOKEN: ${VOOAI_ADMIN_TOKEN:-dev-change-me}
+      VOOAI_RELOAD_URL: http://api:8000/admin/reload-spec
+      PYTHONPATH: /repo
+    entrypoint: ["python"]
+    command: ["-m", "pipelines.run_nightly", "--dry-run-collect", "--skip-anac"]
     depends_on:
       api:
         condition: service_healthy

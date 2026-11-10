@@ -34,6 +34,9 @@ data/SoT/*
 !data/SoT/SoT_aeroportos/**
 # Spec: versionar tabelas de produto; excluir só dumps efêmeros de busca
 data/Spec/spec_resultados/
+data/Spec/spec_cotacoes/
+data/*.sqlite
+data/*.sqlite-*
 !data/Spec/.gitkeep
 !data/README.md
 
@@ -62,3 +65,4 @@ deploy/box/data-bundle/
 
 # Runtime local
 .run/
+.env.smtp.local

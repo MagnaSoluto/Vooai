@@ -1,0 +1,5 @@
+# Deps dos jobs batch na box (compartilha stack da API + httpx já na API).
+httpx==0.28.1
+polars==1.21.0
+pyarrow==19.0.1
+python-dotenv==1.0.1

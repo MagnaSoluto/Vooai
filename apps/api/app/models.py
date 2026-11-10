@@ -12,6 +12,9 @@ class Health(BaseModel):
     gold_date_min: str | None = None
     gold_date_max: str | None = None
     serpapi_configured: bool
+    quote_cache_backend: str | None = None
+    quote_cache_ttl_sec: int | None = None
+    redis_ok: bool | None = None
 
 
 class FlightOffer(BaseModel):
@@ -91,6 +94,21 @@ class AirlineScore(BaseModel):
     n: int
 
 
+class SearchPricing(BaseModel):
+    credits: int
+    saldos: int | None = None
+    cost_brl: float
+    price_brl: float
+    margin: float
+    trip_type: str
+    flex_dates: str
+    currency: str = "BRL"
+    saldo_unit_brl: float | None = None
+    charged: bool | None = None
+    serpapi_spent: bool | None = None
+    ledger_id: int | None = None
+
+
 class SearchResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -112,6 +130,12 @@ class SearchResponse(BaseModel):
     inbound_flights: list[FlightOffer] = []
     combo_flights: list[FlightOffer] = []
     mixed_pairs: list[dict[str, Any]] = []
+    cache_hit: bool | None = None
+    cache_backend: str | None = None
+    cache_ttl_sec: int | None = None
+    pricing: SearchPricing | None = None
+    wallet_balance_brl: float | None = None
+    wallet_balance_saldos: int | None = None
 
 
 class AirportHit(BaseModel):

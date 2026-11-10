@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Nav from "../components/Nav.jsx";
+import AdSlot from "../components/AdSlot.jsx";
 import { fetchHealth, fetchMetrics } from "../api.js";
 
 export default function About() {
@@ -91,20 +92,39 @@ export default function About() {
             <ul className="metrics-list">
               {metrics.slice(0, 8).map((m, i) => {
                 const label = m.modelo || m.model || m.nome || m.metric || `métrica ${i + 1}`;
+                const split = m.split ? ` · ${m.split}` : "";
+                const fmt = (v, digits = 3) =>
+                  v == null || Number.isNaN(Number(v)) ? null : Number(v).toFixed(digits);
+                const parts = [
+                  m.mae != null || m.MAE != null ? `MAE ${fmt(m.mae ?? m.MAE)}` : null,
+                  m.rmse != null || m.RMSE != null ? `RMSE ${fmt(m.rmse ?? m.RMSE)}` : null,
+                  m.roc_auc != null ? `ROC-AUC ${fmt(m.roc_auc)}` : null,
+                  m.pr_auc != null ? `PR-AUC ${fmt(m.pr_auc)}` : null,
+                  m.brier_score != null ? `Brier ${fmt(m.brier_score)}` : null,
+                  m.valor != null || m.value != null
+                    ? String(m.valor ?? m.value)
+                    : null,
+                ].filter(Boolean);
                 const value =
-                  m.mae ?? m.MAE ?? m.rmse ?? m.RMSE ?? m.valor ?? m.value ?? null;
+                  parts.length > 0
+                    ? parts.join(" · ")
+                    : m.prevalencia != null
+                      ? `prevalência ${fmt(m.prevalencia, 4)}`
+                      : "—";
                 return (
                   <li key={i}>
-                    <span>{String(label)}</span>
-                    <strong className="mono">
-                      {value != null ? String(value) : JSON.stringify(m).slice(0, 80)}
-                    </strong>
+                    <span>
+                      {String(label)}
+                      {split}
+                    </span>
+                    <strong className="mono">{value}</strong>
                   </li>
                 );
               })}
             </ul>
           </section>
         )}
+        <AdSlot />
       </main>
     </>
   );

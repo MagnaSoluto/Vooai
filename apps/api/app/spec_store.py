@@ -141,3 +141,12 @@ def metrics_rows() -> list[dict]:
         return []
     df = pl.read_parquet(path)
     return df.to_dicts()
+
+
+def clear_caches() -> list[str]:
+    """Invalida caches em memória após publish de nova Spec (admin reload)."""
+    cleared: list[str] = []
+    for fn in (gold_path, gold_lazy, gold_date_range, dim_aeroportos, companhias_hist):
+        fn.cache_clear()
+        cleared.append(fn.__name__)
+    return cleared

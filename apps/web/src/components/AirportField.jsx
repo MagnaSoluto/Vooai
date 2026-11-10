@@ -20,9 +20,10 @@ export default function AirportField({ label, value, onChange, placeholder = "Ci
       return undefined;
     }
     let cancel = false;
+    const ac = new AbortController();
     const t = setTimeout(() => {
       setLoading(true);
-      fetchAirports(q)
+      fetchAirports(q, { signal: ac.signal })
         .then((rows) => {
           if (!cancel) setItems(rows);
         })
@@ -32,10 +33,11 @@ export default function AirportField({ label, value, onChange, placeholder = "Ci
         .finally(() => {
           if (!cancel) setLoading(false);
         });
-    }, 180);
+    }, 280);
     return () => {
       cancel = true;
       clearTimeout(t);
+      ac.abort();
     };
   }, [query]);
 

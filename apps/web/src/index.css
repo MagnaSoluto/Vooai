@@ -68,11 +68,191 @@ button, input, select {
 .site-nav.light .nav-brand:hover { color: var(--voo-night); }
 .nav-links {
   display: flex;
+  align-items: center;
   gap: 1.6rem;
   font-family: var(--f-mono);
   font-size: 0.75rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+.nav-wallet {
+  color: var(--voo-amber) !important;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.site-nav.light .nav-wallet { color: var(--voo-amber-dim) !important; }
+.nav-logout {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-family: var(--f-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(244, 246, 248, 0.55);
+  padding: 0;
+}
+.site-nav.light .nav-logout { color: var(--voo-muted); }
+.nav-logout:hover { color: var(--voo-amber); }
+
+.search-price-hint {
+  margin-top: 0.85rem;
+  font-size: 0.9rem;
+  max-width: 42ch;
+}
+.search-price-hint strong {
+  color: var(--voo-amber);
+  font-weight: 600;
+}
+
+.billing-notice {
+  margin: 0.75rem 0 0;
+  padding: 0.65rem 0;
+  border-top: 1px solid var(--voo-line);
+  font-size: 0.9rem;
+  color: var(--voo-amber-dim, #b8860b);
+  max-width: 62ch;
+}
+
+.conta-grid {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+.conta-card {
+  border-top: 1px solid var(--voo-line);
+  padding-top: 1.25rem;
+  display: grid;
+  gap: 1rem;
+}
+.conta-email { font-size: 0.8rem; }
+.conta-balance span {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--voo-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.conta-balance strong {
+  font-family: var(--f-display);
+  font-size: 2rem;
+  letter-spacing: -0.03em;
+}
+.topup-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+}
+.topup-row .field { flex: 1; min-width: 8rem; }
+.cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--voo-night);
+  color: var(--voo-paper);
+  border: none;
+  padding: 0.7rem 1.1rem;
+  font-family: var(--f-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.cta:hover { background: var(--voo-amber-dim); }
+.cta.inline { margin-top: 0.75rem; text-decoration: none; }
+.linkish {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--voo-muted);
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.9rem;
+}
+.linkish:hover { color: var(--voo-night); }
+.ledger-list {
+  list-style: none;
+  display: grid;
+  gap: 0.65rem;
+}
+.ledger-list li {
+  display: grid;
+  grid-template-columns: 5rem 1fr;
+  gap: 0.25rem 0.75rem;
+  font-size: 0.9rem;
+}
+.ledger-list .kind {
+  font-family: var(--f-mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.ledger-list .kind.debit { color: var(--voo-bad); }
+.ledger-list .kind.credit,
+.ledger-list .kind.refund { color: var(--voo-good); }
+.ledger-list small { grid-column: 1 / -1; }
+.ok-box { color: var(--voo-good); }
+.billing-error .cta { color: var(--voo-paper); }
+
+.pix-box {
+  margin-top: 0.5rem;
+  display: grid;
+  gap: 0.75rem;
+}
+.pix-box h2 {
+  font-family: var(--f-display);
+  font-size: 1.15rem;
+}
+.pix-box__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.pix-box__waiting {
+  margin: 0;
+  color: var(--voo-muted);
+  font-size: 0.9rem;
+}
+.pix-paid {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.75rem 0;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--voo-line);
+  border-bottom: 1px solid var(--voo-line);
+  color: var(--voo-good);
+}
+.pix-paid strong {
+  font-family: var(--f-display);
+  font-size: 1.05rem;
+  color: var(--voo-night);
+}
+.pix-qr {
+  width: min(220px, 100%);
+  height: auto;
+  background: #fff;
+  padding: 0.5rem;
+  border: 1px solid var(--voo-line);
+}
+.pix-box textarea {
+  width: 100%;
+  font-family: var(--f-mono);
+  font-size: 0.7rem;
+  padding: 0.5rem;
+  border: 1px solid var(--voo-line);
+  resize: vertical;
+}
+
+.ad-slot {
+  margin: 2.5rem auto 0;
+  max-width: 728px;
+  min-height: 0;
 }
 .site-nav a {
   color: rgba(244, 246, 248, 0.85);
@@ -1683,6 +1863,50 @@ button, input, select {
   padding: 0 0.2rem;
 }
 .modal-close:hover { color: var(--voo-ink); }
+.modal-sheet.debit-confirm {
+  width: min(420px, 100%);
+  max-height: none;
+}
+.debit-confirm-lead {
+  font-size: 1.05rem;
+  line-height: 1.45;
+  color: var(--voo-ink);
+  margin: 0 0 0.75rem;
+}
+.debit-confirm-lead strong {
+  color: var(--voo-amber);
+  font-weight: 600;
+}
+.debit-confirm-meta {
+  margin: 0 0 0.5rem;
+  font-family: var(--f-mono);
+  font-size: 0.82rem;
+}
+.debit-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+.btn-ghost {
+  border: 1px solid var(--voo-line, #c5ccd4);
+  background: transparent;
+  color: var(--voo-ink);
+  font: inherit;
+  font-weight: 600;
+  padding: 0.7rem 1.1rem;
+  cursor: pointer;
+}
+.btn-ghost:hover:not(:disabled) {
+  border-color: var(--voo-ink);
+}
+.btn-ghost:disabled,
+.debit-confirm .btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .modal-actions-row {
   display: flex;
   flex-wrap: wrap;

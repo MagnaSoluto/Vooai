@@ -1,18 +1,136 @@
 const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+const TOKEN_KEY = "vooai_token";
+const EMAIL_KEY = "vooai_email";
+// refresh fica em cookie HttpOnly (vooai_rt) — não guardar em localStorage
 
-async function getJson(path) {
-  const res = await fetch(`${API}${path}`);
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body = await res.json();
-      detail = body.detail || JSON.stringify(body);
-    } catch {
-      detail = await res.text();
-    }
-    throw new Error(detail || res.statusText);
+export class ApiError extends Error {
+  constructor(status, detail) {
+    const msg =
+      typeof detail === "string"
+        ? detail
+        : detail?.message || detail?.code || (detail ? "Erro na requisição" : `HTTP ${status}`);
+    super(msg);
+    this.name = "ApiError";
+    this.status = status;
+    this.detail = detail;
+    this.code = typeof detail === "object" && detail ? detail.code : undefined;
   }
+}
+
+export function getToken() {
+  return sessionStorage.getItem(TOKEN_KEY) || "";
+}
+
+export function getEmail() {
+  return localStorage.getItem(EMAIL_KEY) || "";
+}
+
+export function setSession({ token, email }) {
+  if (token) sessionStorage.setItem(TOKEN_KEY, token);
+  if (email) localStorage.setItem(EMAIL_KEY, email);
+  // limpa legado inseguro
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem("vooai_refresh");
+  window.dispatchEvent(new Event("vooai-auth"));
+}
+
+export function clearSession() {
+  sessionStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem("vooai_refresh");
+  localStorage.removeItem(EMAIL_KEY);
+  window.dispatchEvent(new Event("vooai-auth"));
+}
+
+/** Só paths relativos do app (anti open-redirect). */
+export function safeNextPath(raw, fallback = "/") {
+  if (!raw || typeof raw !== "string") return fallback;
+  const v = raw.trim();
+  if (!v.startsWith("/") || v.startsWith("//") || v.includes("://")) return fallback;
+  return v;
+}
+
+function authHeaders(extra = {}) {
+  const token = getToken();
+  const headers = { ...extra };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
+async function parseError(res) {
+  let detail = res.statusText;
+  try {
+    const body = await res.json();
+    detail = body.detail ?? body;
+  } catch {
+    try {
+      detail = await res.text();
+    } catch {
+      /* ignore */
+    }
+  }
+  throw new ApiError(res.status, detail);
+}
+
+let refreshPromise = null;
+
+async function tryRefresh() {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const res = await fetch(`${API}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        clearSession();
+        return false;
+      }
+      const data = await res.json();
+      setSession({
+        token: data.access_token || data.token,
+        email: data.email,
+      });
+      return true;
+    })().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+}
+
+async function request(path, { method = "GET", body, auth = true, signal } = {}) {
+  const opts = {
+    method,
+    credentials: "include",
+    headers: auth
+      ? authHeaders(body !== undefined ? { "Content-Type": "application/json" } : {})
+      : body !== undefined
+        ? { "Content-Type": "application/json" }
+        : {},
+    signal,
+  };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  let res = await fetch(`${API}${path}`, opts);
+  if (res.status === 401 && auth) {
+    const ok = await tryRefresh();
+    if (ok) {
+      opts.headers = authHeaders(body !== undefined ? { "Content-Type": "application/json" } : {});
+      res = await fetch(`${API}${path}`, opts);
+    }
+  }
+  if (!res.ok) await parseError(res);
+  if (res.status === 204) return null;
   return res.json();
+}
+
+async function getJson(path, { auth = true, signal } = {}) {
+  return request(path, { auth, signal });
+}
+
+async function postJson(path, body, { auth = true, signal } = {}) {
+  return request(path, { method: "POST", body, auth, signal });
 }
 
 export function searchFlights({
@@ -20,50 +138,131 @@ export function searchFlights({
   dest,
   date,
   returnDate,
-  tripType = "ida",
-  flexDates = "off",
+  tripType,
+  flexDates,
+  signal,
 }) {
-  const q = new URLSearchParams({ origin, dest, date, trip_type: tripType });
-  if (tripType === "ida_volta" && returnDate) q.set("return_date", returnDate);
+  const q = new URLSearchParams({
+    origin,
+    dest,
+    date,
+  });
+  if (tripType) q.set("trip_type", tripType);
+  if (returnDate) q.set("return_date", returnDate);
   if (flexDates && flexDates !== "off") q.set("flex_dates", flexDates);
-  return getJson(`/search?${q}`);
+  return getJson(`/search?${q}`, { signal });
 }
 
-export function fetchAirports(q) {
-  return getJson(`/airports?q=${encodeURIComponent(q)}`);
+export function fetchAirports(q, { signal } = {}) {
+  return getJson(`/airports?q=${encodeURIComponent(q)}`, { auth: false, signal });
 }
 
-export function fetchReliability() {
-  return getJson("/reliability");
+export function fetchPricing({ tripType, flexDates, returnDate, signal } = {}) {
+  const q = new URLSearchParams({
+    trip_type: tripType || "ida",
+    flex_dates: flexDates || "off",
+  });
+  if (returnDate) q.set("return_date", returnDate);
+  return getJson(`/pricing?${q}`, { auth: false, signal });
 }
 
-export function fetchMetrics() {
-  return getJson("/models/metrics");
+export function fetchFlightDetail(params, { signal } = {}) {
+  const q = new URLSearchParams(params);
+  return getJson(`/flights/detail?${q}`, { signal });
 }
 
-export function fetchHealth() {
-  return getJson("/health");
+function applyAuthSession(data) {
+  setSession({
+    token: data.access_token || data.token,
+    email: data.email,
+  });
+  return data;
 }
 
-export function fetchDashboard({ limit = 10 } = {}) {
-  const q = new URLSearchParams({ limit: String(limit) });
-  return getJson(`/dashboard/summary?${q}`);
+export function register(email, password) {
+  return postJson("/auth/register", { email, password }, { auth: false }).then(applyAuthSession);
 }
 
-export function fetchFlightDetail({
-  companhia,
-  companhia_chave,
-  iata_origin,
-  iata_destination,
-  date,
-  preco_brl,
-}) {
-  const q = new URLSearchParams();
-  if (companhia) q.set("companhia", companhia);
-  if (companhia_chave) q.set("companhia_chave", companhia_chave);
-  if (iata_origin) q.set("iata_origin", iata_origin);
-  if (iata_destination) q.set("iata_destination", iata_destination);
-  if (date) q.set("date", String(date).slice(0, 10));
-  if (preco_brl != null) q.set("preco_brl", String(preco_brl));
-  return getJson(`/flights/detail?${q}`);
+export function login(email, password) {
+  return postJson("/auth/login", { email, password }, { auth: false }).then(applyAuthSession);
+}
+
+export function requestMagicLink(email) {
+  return postJson("/auth/magic-link", { email }, { auth: false });
+}
+
+export function verifyMagicLink(email, code) {
+  return postJson("/auth/magic-link/verify", { email, code }, { auth: false }).then(applyAuthSession);
+}
+
+export async function logout() {
+  try {
+    await postJson("/auth/logout", {}, { auth: true });
+  } catch {
+    /* ignore */
+  }
+  clearSession();
+}
+
+export function fetchWallet({ signal } = {}) {
+  return getJson("/wallet", { signal });
+}
+
+export function fetchMe({ signal } = {}) {
+  return getJson("/auth/me", { signal });
+}
+
+export function topup(amountBrl, { customerDocument, customerName } = {}) {
+  const body = { amount_brl: amountBrl };
+  if (customerDocument) body.customer_document = customerDocument;
+  if (customerName) body.customer_name = customerName;
+  return postJson("/wallet/topup", body);
+}
+
+export function fetchLedger(limit = 20) {
+  return getJson(`/wallet/ledger?limit=${limit}`);
+}
+
+export function fetchHealth({ signal } = {}) {
+  return getJson("/health", { auth: false, signal });
+}
+
+export function fetchMetrics({ signal } = {}) {
+  return getJson("/models/metrics", { auth: false, signal });
+}
+
+export function fetchDashboard({ limit = 10, signal } = {}) {
+  return getJson(`/dashboard/summary?limit=${limit}`, { auth: false, signal });
+}
+
+export function fetchReliability({ signal } = {}) {
+  return getJson("/reliability", { auth: false, signal });
+}
+
+export function humanError(err) {
+  if (!(err instanceof ApiError)) return err?.message || "Falha inesperada.";
+  const d = err.detail;
+  if (typeof d === "object" && d?.message) {
+    if (d.code === "document_required") return d.message;
+    if (d.code === "billing_failed") return d.message;
+    if (d.code === "topup_min") return d.message;
+  }
+  if (err.status === 401) return "Entre na conta para continuar.";
+  if (err.status === 402) {
+    if (d?.required_saldos != null) {
+      return `Saldos insuficientes — precisa de ${Number(d.required_saldos).toLocaleString("pt-BR")} (você tem ${Number(d.balance_saldos ?? 0).toLocaleString("pt-BR")}).`;
+    }
+    if (d?.required_brl != null) {
+      return `Saldo insuficiente — precisa de ${Number(d.required_brl).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}.`;
+    }
+    return "Saldos insuficientes para esta busca.";
+  }
+  if (err.status === 429) return "Muitas consultas agora. Aguarde um minuto e tente de novo.";
+  if (err.status === 503 && /Billing/i.test(String(typeof d === "string" ? d : d?.message || ""))) {
+    return "Recarga PIX indisponível no momento (Billing não configurado).";
+  }
+  if (err.status === 502 && typeof d === "string" && /CPF|CNPJ|Billing/i.test(d)) return d;
+  if (err.status === 502 && typeof d === "object" && d?.message) return d.message;
+  if (err.status >= 500) return "Não concluímos a operação. Tente de novo em instantes.";
+  return err.message || "Não foi possível concluir.";
 }

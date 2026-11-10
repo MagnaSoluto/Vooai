@@ -22,6 +22,10 @@ Após `git clone` + `SERPAPI_API_KEY`, a API precisa de:
 
 **Não** versionar: `data/Spec/spec_resultados/` (consultas SerpAPI gravadas em runtime), `data/SoR/*` (volume grande), restante de `data/SoT/*`.
 
-Renovar Spec: notebooks `08`/`09` → copiar parquet para `data/Spec/` → `git add` → commit. Detalhe operacional: [`docs/deploy-academico.md`](../docs/deploy-academico.md).
+Renovar Spec risco (ANAC): notebooks `08`/`09` ou `pipelines/run_heavy_etl.sh` (mensal).  
+Renovação diária de **preços**: `pipelines.collect_quotes` → `etl_quotes` → `spec_cotacoes/` (fora do Git).
+
+Fábrica barata (sem Glue): [`pipelines/README.md`](../pipelines/README.md).  
+Deploy: [`docs/deploy-academico.md`](../docs/deploy-academico.md) · plano: [`docs/plano-producao-completo.md`](../docs/plano-producao-completo.md).
 
 Malha atual = doméstica BR; internacional: seção 5 do runbook de deploy.

@@ -1,0 +1,14 @@
+# Snippet isolado — NÃO sobrescrever /opt/sdr/Caddyfile inteiro.
+# Preferência: /opt/sdr/caddy-snippets/vooai.caddy + import no Caddyfile principal.
+# Fallback: bloco idempotente no Caddyfile (deploy-box.sh).
+vooai.magnasoluto.com.br {
+	encode gzip
+
+	handle_path /api/* {
+		reverse_proxy vooai-api:8000
+	}
+
+	handle {
+		reverse_proxy vooai-web:80
+	}
+}
