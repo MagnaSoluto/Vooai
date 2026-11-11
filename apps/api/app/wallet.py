@@ -150,9 +150,7 @@ def topup(user_id: int, amount_brl: float, *, reason: str = "topup_stub") -> Use
     quote = saldos_from_topup_brl(amount)
     saldos = int(quote["saldos"])
     if saldos <= 0:
-        raise ValueError(
-            f"Após taxa Asaas (R$ {quote['asaas_fee_brl']:.2f}) não há saldos a creditar."
-        )
+        raise ValueError("Valor de recarga muito baixo. Aumente o valor.")
     with connection(immediate=True) as conn:
         bal = _read_saldos(
             conn.fetchone(
@@ -345,7 +343,6 @@ def ledger_for(user_id: int, *, limit: int = 50) -> list[dict]:
                     "balance_after_saldos": int(bal_s),
                     "amount_brl": float(r["amount_brl"]),
                     "balance_after": float(r["balance_after"]),
-                    "reason": r["reason"],
                     "search_ref": r["search_ref"],
                     "created_at": str(r["created_at"]),
                 }

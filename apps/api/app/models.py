@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class Health(BaseModel):
     status: str
-    spec_dir: str
+    spec_dir: str | None = None
     gold_file: str | None = None
     gold_date_min: str | None = None
     gold_date_max: str | None = None
@@ -97,15 +97,12 @@ class AirlineScore(BaseModel):
 class SearchPricing(BaseModel):
     credits: int
     saldos: int | None = None
-    cost_brl: float
     price_brl: float
-    margin: float
     trip_type: str
     flex_dates: str
     currency: str = "BRL"
     saldo_unit_brl: float | None = None
     charged: bool | None = None
-    serpapi_spent: bool | None = None
     ledger_id: int | None = None
 
 

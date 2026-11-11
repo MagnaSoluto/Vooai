@@ -12,6 +12,7 @@ import {
   humanError,
   login,
   logout,
+  logoutAll,
   register,
   requestMagicLink,
   safeNextPath,
@@ -22,9 +23,22 @@ import { amountBucket, track } from "../telemetry.js";
 
 /** Espelha MIN_TOPUP_BRL da API / MinRechargeBrl do Leads. */
 const MIN_TOPUP = 5;
-/** Taxa Asaas PIX padrão (mesma default da API). */
-const ASAAS_FEE = 1.99;
+/** Custo fixo do PIX (espelha a API) — usado só na prévia de saldos, nunca exibido. */
+const PIX_FEE = 1.99;
 const SALDO_UNIT = 0.12;
+
+const LEDGER_LABEL = {
+  debit: "Busca",
+  credit: "Recarga",
+  refund: "Estorno",
+};
+
+function formatDateTime(value) {
+  if (!value) return "";
+  const d = new Date(String(value).replace(" ", "T"));
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+}
 
 function formatBrl(value) {
   return Number(value).toLocaleString("pt-BR", {
@@ -40,7 +54,7 @@ function formatSaldos(n) {
 
 function previewTopup(amountBrl) {
   const bruto = Number(amountBrl) || 0;
-  const fee = Math.min(ASAAS_FEE, Math.max(0, bruto));
+  const fee = Math.min(PIX_FEE, Math.max(0, bruto));
   const net = Math.round((bruto - fee) * 100) / 100;
   const saldos = net > 0 ? Math.floor(net / SALDO_UNIT + 1e-9) : 0;
   return { bruto, fee, net, saldos };
@@ -50,7 +64,7 @@ export default function Conta() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const next = safeNextPath(params.get("next"), "/");
-  const [mode, setMode] = useState("password"); // password | magic
+  const [mode, setMode] = useState("password"); // password | signup | magic
   const [email, setEmail] = useState(getEmail() || "");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -75,12 +89,12 @@ export default function Conta() {
         if (cancel) return;
         const on = Boolean(p.magic_link_available);
         setMagicAvailable(on);
-        if (!on) setMode("password");
+        if (!on) setMode((m) => (m === "magic" ? "password" : m));
       })
       .catch(() => {
         if (!cancel) {
           setMagicAvailable(false);
-          setMode("password");
+          setMode((m) => (m === "magic" ? "password" : m));
         }
       });
     return () => {
@@ -176,25 +190,57 @@ export default function Conta() {
       await refresh();
       if (params.get("next")) navigate(next);
     } catch (ex) {
-      if (ex instanceof ApiError && ex.status === 401) {
-        try {
-          await register(email.trim(), password);
-          track("register", { method: "password" });
-          track("login", { method: "password" });
-          setMsg("Conta criada — sessão ativa.");
-          setPassword("");
-          await refresh();
-          if (params.get("next")) navigate(next);
-          return;
-        } catch (regEx) {
-          if (regEx instanceof ApiError && /cadastrad/i.test(String(regEx.message))) {
-            setErr("Senha incorreta para este e-mail.");
-            return;
-          }
-          setErr(humanError(regEx));
-          return;
-        }
-      }
+      // Mensagem única: não revela se o e-mail tem conta.
+      setErr(humanError(ex));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onSignup(e) {
+    e.preventDefault();
+    setBusy(true);
+    setErr("");
+    setMsg("");
+    setDevCode("");
+    try {
+      const r = await register(email.trim(), password);
+      track("register", { method: "password" });
+      setPassword("");
+      setMagicSent(true);
+      if (r.dev_code) setDevCode(r.dev_code);
+      setMsg(
+        r.message ||
+          "Se o e-mail for válido, enviamos um código de acesso.",
+      );
+    } catch (ex) {
+      setErr(humanError(ex));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function switchMode(m) {
+    setMode(m);
+    setMagicSent(false);
+    setDevCode("");
+    setCode("");
+    setErr("");
+    setMsg("");
+  }
+
+  async function onLogoutAll() {
+    if (!window.confirm("Encerrar a sessão em todos os dispositivos?")) return;
+    setBusy(true);
+    try {
+      await logoutAll();
+      setWallet(null);
+      setLedger([]);
+      setPix(null);
+      setPaidNotice(null);
+      setAuthed(false);
+      setMsg("Sessões encerradas em todos os dispositivos.");
+    } catch (ex) {
       setErr(humanError(ex));
     } finally {
       setBusy(false);
@@ -235,7 +281,7 @@ export default function Conta() {
     setMsg("");
     try {
       await verifyMagicLink(email.trim(), code.trim());
-      track("login", { method: "magic_link" });
+      track("login", { method: mode === "signup" ? "signup_code" : "magic_link" });
       setMsg("Sessão ativa — saldo pronto para consultar.");
       setCode("");
       await refresh();
@@ -278,8 +324,7 @@ export default function Conta() {
         track("topup", { status: "created", amount_bucket: amountBucket(value) });
         setPix({
           ...w.charge,
-          expected_saldos: w.expected_saldos ?? w.topup_breakdown?.saldos,
-          topup_breakdown: w.topup_breakdown,
+          expected_saldos: w.expected_saldos ?? null,
         });
         setMsg("");
       } else {
@@ -326,36 +371,83 @@ export default function Conta() {
         <h1>{authed ? "Saldo para ver o sinal." : "Acesse o sinal."}</h1>
         <p className="muted">
           {authed
-            ? "Cada busca consome saldos (ida = 1 saldo ≈ R$ 0,12). Recarga mínima "
+            ? `Cada busca de ida consome 1 saldo. Recarregue via PIX a partir de ${formatBrl(MIN_TOPUP)}.`
             : magicAvailable
-              ? "Entre com senha ou código por e-mail — sem login só com o endereço."
-              : "Entre com e-mail e senha (mín. 8). Sem login só com o endereço."}
-          {authed ? `${formatBrl(MIN_TOPUP)} via PIX (desconta taxa Asaas).` : ""}
+              ? "Entre com senha ou código por e-mail."
+              : "Entre com e-mail e senha (mín. 8 caracteres)."}
         </p>
 
         {!authed ? (
           <div className="conta-card">
-            {magicAvailable ? (
-              <div className="trip-toggle" role="group" aria-label="Modo de acesso">
-                <button
-                  type="button"
-                  className={mode === "password" ? "active" : ""}
-                  onClick={() => setMode("password")}
-                >
-                  Senha
-                </button>
+            <div className="trip-toggle" role="group" aria-label="Modo de acesso">
+              <button
+                type="button"
+                className={mode === "password" ? "active" : ""}
+                onClick={() => switchMode("password")}
+              >
+                Entrar
+              </button>
+              <button
+                type="button"
+                className={mode === "signup" ? "active" : ""}
+                onClick={() => switchMode("signup")}
+              >
+                Criar conta
+              </button>
+              {magicAvailable ? (
                 <button
                   type="button"
                   className={mode === "magic" ? "active" : ""}
-                  onClick={() => setMode("magic")}
+                  onClick={() => switchMode("magic")}
                 >
                   Código por e-mail
                 </button>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
 
-            {mode === "password" ? (
-              <form onSubmit={onPassword}>
+            {magicSent ? (
+              <form onSubmit={onMagicVerify}>
+                <p className="muted">
+                  Se {masked} puder receber, enviamos um código. Ele vale por 30 minutos.
+                </p>
+                {devCode ? <p className="muted mono">Dev code: {devCode}</p> : null}
+                <label className="field">
+                  <span>Código</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    required
+                  />
+                </label>
+                <button type="submit" className="cta" disabled={busy}>
+                  {busy ? "…" : "Confirmar"}
+                </button>
+                <button type="button" className="linkish" onClick={() => switchMode(mode)}>
+                  Usar outro e-mail
+                </button>
+              </form>
+            ) : mode === "magic" ? (
+              <form onSubmit={onMagicRequest}>
+                <label className="field">
+                  <span>E-mail</span>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="voce@email.com"
+                    autoComplete="username"
+                    required
+                  />
+                </label>
+                <button type="submit" className="cta" disabled={busy}>
+                  {busy ? "…" : "Enviar código"}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={mode === "signup" ? onSignup : onPassword}>
                 <label className="field">
                   <span>E-mail</span>
                   <input
@@ -373,66 +465,19 @@ export default function Conta() {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    autoComplete="current-password"
+                    autoComplete={mode === "signup" ? "new-password" : "current-password"}
                     minLength={8}
+                    maxLength={200}
                     required
                   />
                 </label>
                 <button type="submit" className="cta" disabled={busy}>
-                  {busy ? "…" : "Entrar / criar conta"}
+                  {busy ? "…" : mode === "signup" ? "Criar conta" : "Entrar"}
                 </button>
+                {mode === "signup" ? (
+                  <p className="muted">Enviaremos um código para confirmar o e-mail.</p>
+                ) : null}
               </form>
-            ) : (
-              <>
-                {!magicSent ? (
-                  <form onSubmit={onMagicRequest}>
-                    <label className="field">
-                      <span>E-mail</span>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="voce@email.com"
-                        required
-                      />
-                    </label>
-                    <button type="submit" className="cta" disabled={busy}>
-                      {busy ? "…" : "Enviar código"}
-                    </button>
-                  </form>
-                ) : (
-                  <form onSubmit={onMagicVerify}>
-                    <p className="muted">Enviamos instruções para {masked}.</p>
-                    {devCode ? (
-                      <p className="muted mono">Dev code: {devCode}</p>
-                    ) : null}
-                    <label className="field">
-                      <span>Código</span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        autoComplete="one-time-code"
-                        value={code}
-                        onChange={(e) => setCode(e.target.value)}
-                        required
-                      />
-                    </label>
-                    <button type="submit" className="cta" disabled={busy}>
-                      {busy ? "…" : "Confirmar"}
-                    </button>
-                    <button
-                      type="button"
-                      className="linkish"
-                      onClick={() => {
-                        setMagicSent(false);
-                        setDevCode("");
-                      }}
-                    >
-                      Usar outro e-mail
-                    </button>
-                  </form>
-                )}
-              </>
             )}
           </div>
         ) : (
@@ -447,12 +492,6 @@ export default function Conta() {
                     : "—"}
                 </strong>
               </p>
-              {wallet ? (
-                <p className="muted" style={{ marginTop: 0 }}>
-                  Equiv. {formatBrl(wallet.balance_brl ?? 0)} · 1 saldo ={" "}
-                  {formatBrl(wallet.saldo_unit_brl ?? SALDO_UNIT)}
-                </p>
-              ) : null}
 
               {paidNotice ? (
                 <div className="pix-paid" role="status">
@@ -503,13 +542,19 @@ export default function Conta() {
                 </button>
               </form>
               <p className="muted" style={{ marginTop: 0 }}>
-                Mínimo {formatBrl(MIN_TOPUP)}. Taxa Asaas ≈ {formatBrl(ASAAS_FEE)}{" "}
-                por PIX. Você recebe{" "}
-                <strong>{formatSaldos(topupPreview.saldos)}</strong> (líquido{" "}
-                {formatBrl(topupPreview.net)}).
+                Mínimo {formatBrl(MIN_TOPUP)}. Você recebe{" "}
+                <strong>{formatSaldos(topupPreview.saldos)}</strong>.
               </p>
               <button type="button" className="linkish" onClick={onLogout}>
                 Sair
+              </button>{" "}
+              <button
+                type="button"
+                className="linkish"
+                onClick={onLogoutAll}
+                disabled={busy}
+              >
+                Sair de todos os dispositivos
               </button>
               {pix && (
                 <div className="pix-box pix-box--pending">
@@ -520,18 +565,11 @@ export default function Conta() {
                     </button>
                   </div>
                   <p className="muted">
-                    {formatBrl(pix.valor)} · status {pix.status}
+                    {formatBrl(pix.valor)}
                     {pix.expected_saldos != null
-                      ? ` · ~${formatSaldos(pix.expected_saldos)} após confirmação`
+                      ? ` · ${formatSaldos(pix.expected_saldos)} após confirmação`
                       : ""}
                   </p>
-                  {pix.topup_breakdown ? (
-                    <p className="muted">
-                      Bruto {formatBrl(pix.topup_breakdown.pay_brl)} − Asaas{" "}
-                      {formatBrl(pix.topup_breakdown.asaas_fee_brl)} = líquido{" "}
-                      {formatBrl(pix.topup_breakdown.net_brl)}.
-                    </p>
-                  ) : null}
                   <p className="pix-box__waiting" role="status">
                     Aguardando pagamento… os saldos atualizam sozinhos assim que
                     o PIX confirmar.
@@ -553,7 +591,7 @@ export default function Conta() {
                       <textarea readOnly rows={4} value={pix.copia_e_cola} />
                     </label>
                   ) : null}
-                  {pix.invoice_url ? (
+                  {/^https:\/\//i.test(String(pix.invoice_url || "")) ? (
                     <a
                       className="cta inline"
                       href={pix.invoice_url}
@@ -574,7 +612,9 @@ export default function Conta() {
                 <ul className="ledger-list">
                   {ledger.map((row) => (
                     <li key={row.id}>
-                      <span className={`kind ${row.kind}`}>{row.kind}</span>
+                      <span className={`kind ${row.kind}`}>
+                        {LEDGER_LABEL[row.kind] || "Movimentação"}
+                      </span>
                       <span className="mono">
                         {row.kind === "debit" ? "−" : "+"}
                         {row.amount_saldos != null
@@ -584,7 +624,7 @@ export default function Conta() {
                               currency: "BRL",
                             })}
                       </span>
-                      <small className="muted">{row.created_at}</small>
+                      <small className="muted">{formatDateTime(row.created_at)}</small>
                     </li>
                   ))}
                 </ul>

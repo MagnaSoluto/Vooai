@@ -1,17 +1,22 @@
 from __future__ import annotations
 
+import hashlib
 import hmac
+import logging
 import os
+import re
 from pathlib import Path
 from typing import Annotated, Any
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from . import quote_cache
-from .auth import require_user_if_billing
+from .auth import UserRequired, extract_token, require_user_if_billing
 from .billing_client import (
     BillingApiError,
     BillingNotConfigured,
@@ -27,24 +32,24 @@ from .models import AirportHit, DashboardSummary, Health, SearchResponse
 from .paths import spec_dir
 from .pricing import (
     MIN_TOPUP_BRL,
-    PRICE_TABLE,
     PRICE_TABLE_SALDOS,
     SALDO_UNIT_BRL,
-    asaas_pix_fee_brl,
     brl_equiv_saldos,
-    cost_per_credit_brl,
     quote_price,
     saldos_from_topup_brl,
 )
-from .rate_limit import check_rate_limit
+from .rate_limit import check_rate_limit, client_ip
 from .search import airline_reliability, simular_viagem, try_cached_viagem
-from .security import allow_topup_stub, cors_origins, is_prod, search_require_auth
+from .security import allow_topup_stub, auth_secret, cors_origins, is_prod, search_require_auth
 from .sessions import (
+    access_session_id,
+    warm_auth,
     ensure_auth_schema,
     login_with_password,
     refresh_session,
     register_with_password,
     request_magic_link,
+    revoke_all_sessions,
     revoke_refresh,
     smtp_configured,
     verify_magic_link,
@@ -76,9 +81,15 @@ from .wallet import (
     wallet_public,
 )
 
+logger = logging.getLogger("vooai.api")
+
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 app = FastAPI(
+    # Swagger/OpenAPI só fora de prod (não mapear a superfície da API pra terceiros).
+    docs_url=None if is_prod() else "/docs",
+    redoc_url=None if is_prod() else "/redoc",
+    openapi_url=None if is_prod() else "/openapi.json",
     title="VooAI API",
     version="0.5.0",
     description=(
@@ -95,13 +106,32 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-VooAI-Token", "X-VooAI-Admin-Token"],
 )
 
+# Teto por recarga: limita abuso/erro de digitação e exposição em cobrança única.
+MAX_TOPUP_BRL = float(os.getenv("VOOAI_MAX_TOPUP_BRL", "500"))
+
+@app.exception_handler(RequestValidationError)
+async def _validation_error(_request: Request, exc: RequestValidationError) -> JSONResponse:
+    """422 sem ecoar o input (evita 500 com NaN/Infinity e reflexo de dados do cliente)."""
+    fields = [
+        {"loc": [str(x) for x in e.get("loc", ())], "msg": str(e.get("msg", ""))}
+        for e in exc.errors()
+    ]
+    return JSONResponse(
+        status_code=422,
+        content={"detail": {"code": "invalid_input", "message": "Dados inválidos.", "fields": fields}},
+    )
+
+
 UserDep = Annotated[User | None, Depends(require_user_if_billing)]
 
 
 @app.on_event("startup")
 def _startup() -> None:
+    if is_prod():
+        auth_secret()  # falha no boot (e não no 1º login) se o segredo estiver ausente/fraco
     init_db()
     ensure_auth_schema()
+    warm_auth()  # pré-calcula o hash fictício (login com tempo constante)
 
 
 class RegisterBody(BaseModel):
@@ -145,14 +175,18 @@ class LogoutBody(BaseModel):
 
 
 class TopupBody(BaseModel):
-    amount_brl: float = Field(..., description=f"Mínimo R$ {MIN_TOPUP_BRL:.2f}")
-    customer_name: str | None = None
-    customer_document: str | None = None
+    amount_brl: float = Field(
+        ...,
+        allow_inf_nan=False,
+        description=f"Mínimo R$ {MIN_TOPUP_BRL:.2f}",
+    )
+    customer_name: str | None = Field(default=None, max_length=120)
+    customer_document: str | None = Field(default=None, max_length=32)
     stub: bool = False
 
 
 def _client_ip(request: Request) -> str:
-    return request.client.host if request.client else "anon"
+    return client_ip(request)
 
 
 def _rl_auth(request: Request, bucket: str) -> None:
@@ -165,11 +199,27 @@ def _rl_auth(request: Request, bucket: str) -> None:
         ) from exc
 
 
+def _rl_email(bucket: str, email: str, *, limit: int, window: float) -> None:
+    """Limite por conta (não só por IP): trava brute force distribuído em vários IPs."""
+    key = hashlib.sha256(email.strip().lower().encode()).hexdigest()[:32]
+    try:
+        check_rate_limit(f"auth:{bucket}:email:{key}", limit=limit, window=window)
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=429,
+            detail={"code": "rate_limited", "message": str(exc)},
+        ) from exc
+
+
+_UPSTREAM_UNAVAILABLE = "Não conseguimos consultar as cotações agora. Tente de novo em instantes."
+_DATA_UNAVAILABLE = "Dados temporariamente indisponíveis. Tente de novo em instantes."
+
+
 def _auth_response(payload: dict[str, Any], response: Response) -> dict[str, Any]:
     return attach_session_cookies(response, payload)
 
 
-@app.get("/health", response_model=Health)
+@app.get("/health", response_model=Health, response_model_exclude_none=True)
 def health() -> Health:
     gold = None
     dmin = dmax = None
@@ -179,10 +229,18 @@ def health() -> Health:
         dmin, dmax = a.isoformat(), b.isoformat()
     except Exception:
         pass
+    if is_prod():
+        # Público: só o que a página Método usa. Detalhe de infra fica para quem tem o servidor.
+        return Health(
+            status="ok",
+            gold_date_min=dmin,
+            gold_date_max=dmax,
+            serpapi_configured=bool(os.getenv("SERPAPI_API_KEY")),
+        )
     return Health(
         status="ok",
-        spec_dir=str(spec_dir()) if not is_prod() else "/data/Spec",
-        gold_file=gold if not is_prod() else (Path(gold).name if gold else None),
+        spec_dir=str(spec_dir()),
+        gold_file=gold,
         gold_date_min=dmin,
         gold_date_max=dmax,
         serpapi_configured=bool(os.getenv("SERPAPI_API_KEY")),
@@ -197,7 +255,7 @@ def ingest_events(body: TelemetryBatchIn, request: Request) -> dict[str, Any]:
     """Ingest client-side product events (fail-open, sem PII)."""
     if not telemetry_enabled():
         return {"ok": True, "accepted": 0, "enabled": False}
-    rl_key = f"tel:{request.client.host if request.client else 'anon'}"
+    rl_key = f"tel:{_client_ip(request)}"
     try:
         check_rate_limit(rl_key)
     except RuntimeError as exc:
@@ -231,30 +289,24 @@ def pricing_info(
     q = quote_price(trip_type=trip_type, flex_dates=flex_dates, return_date=return_date)
     example = saldos_from_topup_brl(MIN_TOPUP_BRL)
     return {
-        "min_margin": 0.30,
-        "cost_per_credit_brl": cost_per_credit_brl(),
         "saldo_unit_brl": SALDO_UNIT_BRL,
-        "asaas_pix_fee_brl": asaas_pix_fee_brl(),
         "min_topup_brl": MIN_TOPUP_BRL,
-        "topup_example": example,
+        "topup_example": {"pay_brl": example["pay_brl"], "saldos": example["saldos"]},
         "billing_enabled": billing_enabled(),
         "search_require_auth": search_require_auth(),
-        "table": PRICE_TABLE,
         "table_saldos": PRICE_TABLE_SALDOS,
         "quote": q.as_dict(),
-        "cache_ttl_sec": quote_cache.cache_ttl_sec(),
-        "note": "Consulta entrega debita saldos (1 saldo ≈ busca ida). Recarga PIX: bruto − taxa Asaas → floor(líquido/0,12) saldos. Cache hit não gasta SerpAPI.",
-        "db": "postgres" if db_label().startswith("postgres") else "sqlite",
-        "billing_api_configured": billing_configured(),
         "magic_link_available": smtp_configured() or not is_prod(),
     }
 
 
 @app.post("/auth/register")
-def auth_register(request: Request, response: Response, body: RegisterBody) -> dict[str, Any]:
+def auth_register(request: Request, body: RegisterBody) -> dict[str, Any]:
+    """Cadastro confirmado por código. Resposta idêntica exista ou não a conta."""
     _rl_auth(request, "register")
+    _rl_email("register", str(body.email), limit=3, window=600)
     try:
-        return _auth_response(register_with_password(str(body.email), body.password), response)
+        return register_with_password(str(body.email), body.password)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail={"code": "register_failed", "message": str(exc)}) from exc
 
@@ -262,18 +314,20 @@ def auth_register(request: Request, response: Response, body: RegisterBody) -> d
 @app.post("/auth/login")
 def auth_login(request: Request, response: Response, body: LoginBody) -> dict[str, Any]:
     _rl_auth(request, "login")
+    _rl_email("login", str(body.email), limit=10, window=900)
     try:
         return _auth_response(login_with_password(str(body.email), body.password), response)
     except ValueError:
         raise HTTPException(
             status_code=401,
-            detail={"code": "auth_failed", "message": "Credenciais inválidas."},
+            detail={"code": "auth_failed", "message": "E-mail ou senha incorretos."},
         ) from None
 
 
 @app.post("/auth/magic-link")
 def auth_magic_link(request: Request, body: MagicRequestBody) -> dict[str, Any]:
     _rl_auth(request, "magic")
+    _rl_email("magic", str(body.email), limit=3, window=600)
     try:
         return request_magic_link(str(body.email))
     except ValueError as exc:
@@ -283,6 +337,7 @@ def auth_magic_link(request: Request, body: MagicRequestBody) -> dict[str, Any]:
 @app.post("/auth/magic-link/verify")
 def auth_magic_verify(request: Request, response: Response, body: MagicVerifyBody) -> dict[str, Any]:
     _rl_auth(request, "magic_verify")
+    _rl_email("magic_verify", str(body.email), limit=10, window=600)
     try:
         return _auth_response(verify_magic_link(str(body.email), body.code), response)
     except ValueError:
@@ -315,16 +370,37 @@ def auth_refresh(request: Request, response: Response, body: RefreshBody | None 
         ) from None
 
 
+_LOGOUT_HEADERS = {
+    # Limpa cache e storage do navegador para esta origem (token em sessionStorage etc.).
+    "Clear-Site-Data": '"cache", "storage"',
+    "Cache-Control": "no-store",
+}
+
+
 @app.post("/auth/logout")
 def auth_logout(
     request: Request,
     response: Response,
-    user: UserDep,
     body: LogoutBody | None = None,
+    authorization: str | None = Header(default=None),
 ) -> dict[str, Any]:
+    """Encerra só esta sessão. Funciona mesmo com access expirado (usa o cookie)."""
+    _rl_auth(request, "logout")
     rt = (body.refresh_token if body else None) or request.cookies.get(REFRESH_COOKIE)
-    revoke_refresh(rt, user_id=user.id if user else None)
+    sid = access_session_id(extract_token(authorization, None))
+    revoke_refresh(rt, session_id=sid)
     clear_refresh_cookie(response)
+    response.headers.update(_LOGOUT_HEADERS)
+    return {"status": "ok"}
+
+
+@app.post("/auth/logout-all")
+def auth_logout_all(request: Request, response: Response, user: UserRequired) -> dict[str, Any]:
+    """Sair de todos os dispositivos (revoga todas as sessões da conta)."""
+    _rl_auth(request, "logout")
+    revoke_all_sessions(user.id)
+    clear_refresh_cookie(response)
+    response.headers.update(_LOGOUT_HEADERS)
     return {"status": "ok"}
 
 
@@ -378,6 +454,11 @@ def wallet_topup(request: Request, body: TopupBody, user: UserDep) -> dict[str, 
             status_code=400,
             detail={"code": "topup_min", "message": f"Recarga mínima: R$ {MIN_TOPUP_BRL:.2f}"},
         )
+    if body.amount_brl > MAX_TOPUP_BRL:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "topup_min", "message": f"Recarga máxima: R$ {MAX_TOPUP_BRL:.2f}"},
+        )
 
     preview = saldos_from_topup_brl(body.amount_brl)
     if int(preview["saldos"]) <= 0:
@@ -385,11 +466,7 @@ def wallet_topup(request: Request, body: TopupBody, user: UserDep) -> dict[str, 
             status_code=400,
             detail={
                 "code": "topup_fee_exceeds",
-                "message": (
-                    f"Após taxa Asaas (R$ {preview['asaas_fee_brl']:.2f}) "
-                    "não restam saldos. Aumente o valor da recarga."
-                ),
-                **preview,
+                "message": "Valor de recarga muito baixo. Aumente o valor.",
             },
         )
 
@@ -403,15 +480,18 @@ def wallet_topup(request: Request, body: TopupBody, user: UserDep) -> dict[str, 
             **wallet_public(updated),
             "credited_brl": body.amount_brl,
             "credited_saldos": preview["saldos"],
-            "topup_breakdown": preview,
             "provider": "stub_local",
             "status": "pago",
             "note": "Crédito imediato (dev). Em prod configure BILLING_API_URL.",
         }
     if body.stub and not allow_topup_stub():
-        raise HTTPException(status_code=403, detail="Stub de recarga desligado em produção.")
+        raise HTTPException(status_code=403, detail="Recarga indisponível no momento.")
     if not billing_configured():
-        raise HTTPException(status_code=503, detail="Billing API não configurada.")
+        logger.error("topup: billing não configurado")
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "billing_unavailable", "message": "Recarga PIX indisponível no momento. Tente mais tarde."},
+        )
 
     document = _normalize_br_document(body.customer_document)
     if not document or len(document) not in (11, 14):
@@ -432,15 +512,30 @@ def wallet_topup(request: Request, body: TopupBody, user: UserDep) -> dict[str, 
             customer_document=document,
         )
     except BillingNotConfigured as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        logger.error("topup: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "billing_unavailable", "message": "Recarga PIX indisponível no momento. Tente mais tarde."},
+        ) from exc
     except BillingApiError as exc:
+        logger.warning("topup: falha ao gerar cobrança: %s", exc)
+        raw = str(exc)
+        message = (
+            "CPF ou CNPJ inválido. Confira o número e tente de novo."
+            if re.search(r"cpf|cnpj|cpfCnpj|documento", raw, re.I)
+            else "Não conseguimos gerar o PIX agora. Tente de novo em instantes."
+        )
         raise HTTPException(
             status_code=502,
-            detail={"code": "billing_failed", "message": str(exc)},
+            detail={"code": "billing_failed", "message": message},
         ) from exc
 
     if not charge.cobranca_id:
-        raise HTTPException(status_code=502, detail="Billing API não retornou cobranca_id.")
+        logger.error("topup: cobrança sem cobranca_id")
+        raise HTTPException(
+            status_code=502,
+            detail={"code": "billing_failed", "message": "Não conseguimos gerar o PIX agora. Tente de novo em instantes."},
+        )
 
     save_pending_charge(
         cobranca_id=charge.cobranca_id,
@@ -454,12 +549,8 @@ def wallet_topup(request: Request, body: TopupBody, user: UserDep) -> dict[str, 
         "status": charge.status,
         "amount_brl": charge.valor,
         "expected_saldos": preview["saldos"],
-        "topup_breakdown": preview,
         "charge": charge.as_dict(),
-        "note": (
-            f"Após o PIX, creditamos ~{preview['saldos']} saldos "
-            f"(R$ {preview['net_brl']:.2f} líquido − taxa Asaas R$ {preview['asaas_fee_brl']:.2f})."
-        ),
+        "note": f"Após a confirmação do PIX, creditamos {preview['saldos']} saldos.",
     }
 
 
@@ -587,7 +678,7 @@ def _do_search(
     if trip_type == "ida_volta" and not volta:
         raise HTTPException(status_code=400, detail="Informe return_date para ida e volta.")
 
-    rl_key = f"u:{user.id}" if user else f"ip:{request.client.host if request.client else 'anon'}"
+    rl_key = f"u:{user.id}" if user else f"ip:{_client_ip(request)}"
     try:
         check_rate_limit(rl_key)
     except RuntimeError as exc:
@@ -634,7 +725,8 @@ def _do_search(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except FileNotFoundError as exc:
         _refund_undelivered("refund_undelivered_spec")
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        logger.error("search: dados ausentes: %s", exc)
+        raise HTTPException(status_code=503, detail=_DATA_UNAVAILABLE) from exc
 
     if cached is not None:
         # Entregue via cache — mantém débito (não estorna).
@@ -666,10 +758,12 @@ def _do_search(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
         _refund_undelivered("refund_undelivered_serpapi")
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        logger.warning("search: falha no provedor de cotações: %s", exc)
+        raise HTTPException(status_code=502, detail=_UPSTREAM_UNAVAILABLE) from exc
     except FileNotFoundError as exc:
         _refund_undelivered("refund_undelivered_spec")
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        logger.error("search: dados ausentes: %s", exc)
+        raise HTTPException(status_code=503, detail=_DATA_UNAVAILABLE) from exc
     except Exception:
         _refund_undelivered("refund_undelivered_unexpected")
         raise
@@ -679,10 +773,10 @@ def _do_search(
 def search(
     request: Request,
     user: UserDep,
-    origin: str = Query(..., min_length=2, description="Cidade ou IATA"),
-    dest: str = Query(..., min_length=2, description="Cidade ou IATA"),
-    date: str = Query(..., description="Data de ida YYYY-MM-DD"),
-    return_date: str | None = Query(None, description="Data de volta YYYY-MM-DD (ida e volta)"),
+    origin: str = Query(..., min_length=2, max_length=80, description="Cidade ou IATA"),
+    dest: str = Query(..., min_length=2, max_length=80, description="Cidade ou IATA"),
+    date: str = Query(..., max_length=10, description="Data de ida YYYY-MM-DD"),
+    return_date: str | None = Query(None, max_length=10, description="Data de volta YYYY-MM-DD (ida e volta)"),
     trip_type: str | None = Query(None, description="ida | ida_volta"),
     flex_dates: str | None = Query(
         "off",
@@ -705,10 +799,10 @@ def search(
 def quotes_search_compat(
     request: Request,
     user: UserDep,
-    origin: str = Query(...),
-    dest: str = Query(...),
-    date: str = Query(...),
-    return_date: str | None = Query(None),
+    origin: str = Query(..., min_length=2, max_length=80),
+    dest: str = Query(..., min_length=2, max_length=80),
+    date: str = Query(..., max_length=10),
+    return_date: str | None = Query(None, max_length=10),
     trip_type: str | None = Query(None),
     flex_dates: str | None = Query("off"),
 ) -> SearchResponse:
@@ -725,7 +819,7 @@ def quotes_search_compat(
 
 
 @app.get("/airports", response_model=list[AirportHit])
-def airports(q: str = Query(..., min_length=1)) -> list[AirportHit]:
+def airports(q: str = Query(..., min_length=1, max_length=80)) -> list[AirportHit]:
     from .normalize import normalizar_texto
 
     dim = dim_aeroportos()
@@ -820,7 +914,8 @@ def flights_detail(
             flight=flight,
         )
     except FileNotFoundError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        logger.error("dados ausentes: %s", exc)
+        raise HTTPException(status_code=503, detail=_DATA_UNAVAILABLE) from exc
 
 
 @app.get("/reliability")
@@ -837,7 +932,8 @@ def dashboard(
     try:
         return DashboardSummary(**dashboard_summary(limit=limit, min_flights_route=min_flights))
     except FileNotFoundError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        logger.error("dados ausentes: %s", exc)
+        raise HTTPException(status_code=503, detail=_DATA_UNAVAILABLE) from exc
 
 
 @app.get("/models/metrics")
@@ -852,7 +948,7 @@ def admin_reload_spec(
     expected = os.getenv("VOOAI_ADMIN_TOKEN", "").strip()
     if not expected:
         raise HTTPException(status_code=503, detail="Admin desabilitado: VOOAI_ADMIN_TOKEN ausente.")
-    if x_vooai_admin_token != expected:
+    if not _segredo_igual(expected, x_vooai_admin_token or ""):
         raise HTTPException(status_code=401, detail="Token admin inválido.")
     cleared = clear_caches()
     gold = None

@@ -4,8 +4,21 @@
 vooai.magnasoluto.com.br {
 	encode gzip
 
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
 	handle_path /api/* {
-		reverse_proxy vooai-api:8000
+		header X-Frame-Options "DENY"
+		header Cache-Control "no-store"
+		header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+		reverse_proxy vooai-api:8000 {
+			# IP real do cliente: sobrescreve qualquer X-Forwarded-For forjado.
+			header_up X-Forwarded-For {remote_host}
+		}
 	}
 
 	handle {

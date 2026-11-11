@@ -492,6 +492,11 @@ button, input, select {
   color: #e8a317;
   border-bottom-color: #e8a317;
 }
+/* Conta tem fundo claro: o tom papel do toggle da Home some ali. */
+.conta .trip-toggle { border-bottom-color: var(--voo-line); }
+.conta .trip-toggle button { color: var(--voo-muted); }
+.conta .trip-toggle button:hover { color: var(--voo-ink); }
+.conta .trip-toggle button.active { color: var(--voo-amber-dim); border-bottom-color: var(--voo-amber); }
 
 .flex-dates {
   display: flex;

@@ -15,6 +15,16 @@ const SORT_OPTIONS = [
   { value: "companhia", label: "Companhia" },
 ];
 
+/** Só aceita links http(s) vindos de dados externos (bloqueia javascript:, data: etc.). */
+function safeHttpUrl(url) {
+  try {
+    const u = new URL(String(url));
+    return u.protocol === "https:" || u.protocol === "http:" ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+
 function fmt(n) {
   if (n == null || Number.isNaN(n)) return "—";
   return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -456,10 +466,10 @@ function MixedCard({ pair, onOpen }) {
         </button>
       </div>
       <footer className="mixed-actions">
-        {pair.booking_url_out && (
+        {safeHttpUrl(pair.booking_url_out) && (
           <a
             className="mixed-buy-link"
-            href={pair.booking_url_out}
+            href={safeHttpUrl(pair.booking_url_out)}
             target="_blank"
             rel="noreferrer"
             onClick={(e) => e.stopPropagation()}
@@ -467,10 +477,10 @@ function MixedCard({ pair, onOpen }) {
             Comprar ida →
           </a>
         )}
-        {pair.booking_url_in && (
+        {safeHttpUrl(pair.booking_url_in) && (
           <a
             className="mixed-buy-link"
-            href={pair.booking_url_in}
+            href={safeHttpUrl(pair.booking_url_in)}
             target="_blank"
             rel="noreferrer"
             onClick={(e) => e.stopPropagation()}
@@ -944,10 +954,6 @@ export default function Results() {
                   data.pricing.saldos != null
                     ? `${Number(data.pricing.saldos).toLocaleString("pt-BR")} saldos`
                     : fmt(data.pricing.price_brl)
-                }${
-                  data.pricing.credits > 1
-                    ? ` · até ${data.pricing.credits} consultas SerpAPI`
-                    : ""
                 }.`}
                 {data.wallet_balance_saldos != null
                   ? ` Saldos atuais: ${Number(data.wallet_balance_saldos).toLocaleString("pt-BR")}.`

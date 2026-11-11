@@ -202,9 +202,6 @@ export default function Home() {
             {quotePrice && (
               <p className="search-price-hint muted">
                 Esta busca custará <strong>{priceLabel}</strong>
-                {quotePrice.credits > 1
-                  ? ` · até ${quotePrice.credits} consultas SerpAPI`
-                  : " · 1 consulta SerpAPI"}
               </p>
             )}
           </form>
@@ -243,10 +240,7 @@ export default function Home() {
             </header>
             <p className="debit-confirm-lead">
               Ao continuar, esta busca debitará{" "}
-              <strong>{priceLabel || "saldos da tabela"}</strong> da sua conta
-              {quotePrice?.credits > 1
-                ? ` (até ${quotePrice.credits} consultas SerpAPI)`
-                : ""}.
+              <strong>{priceLabel || "os saldos desta consulta"}</strong> da sua conta.
             </p>
             <p className="muted debit-confirm-meta">
               {origin.trim()} → {dest.trim()}
@@ -255,7 +249,7 @@ export default function Home() {
               {flexDates !== "off" ? " · datas próximas" : ""}
             </p>
             <p className="muted">
-              Se a API falhar e a busca não for entregue, o valor é estornado.
+              Se a busca não for concluída, os saldos voltam para a sua conta.
             </p>
             <div className="debit-confirm-actions">
               <button

@@ -21,12 +21,13 @@ def is_prod() -> bool:
 
 
 def auth_secret() -> str:
-    secret = (os.getenv("VOOAI_AUTH_SECRET") or os.getenv("VOOAI_ADMIN_TOKEN") or "").strip()
-    if not secret:
-        if is_prod():
-            raise RuntimeError("VOOAI_AUTH_SECRET obrigatório em produção.")
-        secret = "dev-insecure-vooai-auth-secret-change-me"
-    return secret
+    secret = (os.getenv("VOOAI_AUTH_SECRET") or "").strip()
+    if is_prod():
+        # Em prod não reaproveita o token admin: vazar um não pode permitir forjar sessão.
+        if len(secret) < 32:
+            raise RuntimeError("VOOAI_AUTH_SECRET (>= 32 chars) obrigatório em produção.")
+        return secret
+    return secret or (os.getenv("VOOAI_ADMIN_TOKEN") or "").strip() or "dev-insecure-vooai-auth-secret-change-me"
 
 
 def access_ttl_sec() -> int:
@@ -113,18 +114,20 @@ def _b64url_decode(data: str) -> bytes:
     return base64.urlsafe_b64decode((data + pad).encode())
 
 
-def mint_access_token(*, user_id: int, email: str) -> tuple[str, int]:
+def mint_access_token(*, user_id: int, email: str, session_id: str | None = None) -> tuple[str, int]:
     now = int(time.time())
     exp = now + access_ttl_sec()
     header = {"alg": "HS256", "typ": "JWT"}
     payload = {"sub": str(user_id), "email": email, "iat": now, "exp": exp, "typ": "access"}
+    if session_id:
+        payload["sid"] = session_id
     h = _b64url(json.dumps(header, separators=(",", ":")).encode())
     p = _b64url(json.dumps(payload, separators=(",", ":")).encode())
     sig = hmac.new(auth_secret().encode(), f"{h}.{p}".encode(), hashlib.sha256).digest()
     return f"{h}.{p}.{_b64url(sig)}", exp
 
 
-def parse_access_token(token: str) -> dict[str, Any] | None:
+def parse_access_token(token: str, *, allow_expired: bool = False) -> dict[str, Any] | None:
     try:
         h, p, s = token.split(".", 2)
         expected = hmac.new(auth_secret().encode(), f"{h}.{p}".encode(), hashlib.sha256).digest()
@@ -133,7 +136,7 @@ def parse_access_token(token: str) -> dict[str, Any] | None:
         payload = json.loads(_b64url_decode(p))
         if payload.get("typ") != "access":
             return None
-        if int(payload.get("exp") or 0) < int(time.time()):
+        if not allow_expired and int(payload.get("exp") or 0) < int(time.time()):
             return None
         return payload
     except Exception:

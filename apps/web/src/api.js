@@ -77,12 +77,19 @@ let refreshPromise = null;
 async function tryRefresh() {
   if (!refreshPromise) {
     refreshPromise = (async () => {
-      const res = await fetch(`${API}/auth/refresh`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({}),
-      });
+      const call = () =>
+        fetch(`${API}/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({}),
+        });
+      let res = await call();
+      if (res.status === 401) {
+        // Outra aba pode ter acabado de rotacionar o cookie: tenta 1x com o novo.
+        await new Promise((r) => setTimeout(r, 400));
+        res = await call();
+      }
       if (!res.ok) {
         clearSession();
         return false;
@@ -179,8 +186,9 @@ function applyAuthSession(data) {
   return data;
 }
 
+/** Cadastro: o servidor envia um código; a conta só é criada ao confirmar (verifyMagicLink). */
 export function register(email, password) {
-  return postJson("/auth/register", { email, password }, { auth: false }).then(applyAuthSession);
+  return postJson("/auth/register", { email, password }, { auth: false });
 }
 
 export function login(email, password) {
@@ -195,12 +203,35 @@ export function verifyMagicLink(email, code) {
   return postJson("/auth/magic-link/verify", { email, code }, { auth: false }).then(applyAuthSession);
 }
 
-export async function logout() {
+async function postLogout(path) {
+  // Sem retry de refresh: logout não deve renovar sessão. O cookie HttpOnly
+  // identifica a sessão mesmo com o access expirado.
   try {
-    await postJson("/auth/logout", {}, { auth: true });
+    await fetch(`${API}${path}`, {
+      method: "POST",
+      credentials: "include",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: "{}",
+    });
   } catch {
-    /* ignore */
+    /* rede fora: ainda assim limpa o lado do cliente */
   }
+  clearSession();
+}
+
+export function logout() {
+  return postLogout("/auth/logout");
+}
+
+/** Encerra todas as sessões da conta (todos os dispositivos). */
+export async function logoutAll() {
+  const res = await fetch(`${API}/auth/logout-all`, {
+    method: "POST",
+    credentials: "include",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: "{}",
+  });
+  if (!res.ok && res.status !== 401) await parseError(res);
   clearSession();
 }
 
@@ -243,9 +274,14 @@ export function humanError(err) {
   if (!(err instanceof ApiError)) return err?.message || "Falha inesperada.";
   const d = err.detail;
   if (typeof d === "object" && d?.message) {
+    if (d.code === "auth_failed") return d.message;
+    if (d.code === "register_failed") return d.message;
+    if (d.code === "magic_invalid") return d.message;
+    if (d.code === "rate_limited") return d.message;
     if (d.code === "document_required") return d.message;
     if (d.code === "billing_failed") return d.message;
     if (d.code === "topup_min") return d.message;
+    if (d.code === "topup_fee_exceeds") return d.message;
   }
   if (err.status === 401) return "Entre na conta para continuar.";
   if (err.status === 402) {
@@ -258,11 +294,12 @@ export function humanError(err) {
     return "Saldos insuficientes para esta busca.";
   }
   if (err.status === 429) return "Muitas consultas agora. Aguarde um minuto e tente de novo.";
-  if (err.status === 503 && /Billing/i.test(String(typeof d === "string" ? d : d?.message || ""))) {
-    return "Recarga PIX indisponível no momento (Billing não configurado).";
+  if (typeof d === "object" && d?.code === "billing_unavailable") {
+    return "Recarga PIX indisponível no momento. Tente mais tarde.";
   }
-  if (err.status === 502 && typeof d === "string" && /CPF|CNPJ|Billing/i.test(d)) return d;
-  if (err.status === 502 && typeof d === "object" && d?.message) return d.message;
+  if (err.status === 502 && typeof d === "object" && d?.code === "billing_failed" && d?.message) {
+    return d.message;
+  }
   if (err.status >= 500) return "Não concluímos a operação. Tente de novo em instantes.";
   return err.message || "Não foi possível concluir.";
 }

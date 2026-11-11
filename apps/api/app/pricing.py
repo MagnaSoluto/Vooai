@@ -119,9 +119,7 @@ class QuotePrice:
         return {
             "credits": self.credits,
             "saldos": self.saldos,
-            "cost_brl": round(self.cost_brl, 4),
             "price_brl": self.price_brl,
-            "margin": self.margin,
             "trip_type": self.trip_type,
             "flex_dates": self.flex_dates,
             "currency": "BRL",
